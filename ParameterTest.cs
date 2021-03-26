@@ -5,7 +5,7 @@ public static class ParameterTest {
     public static int Main(string[] args) {
         ConsoleParameters.InitializeParameters("--",
                                                new ParameterDefinition[] {
-                                                   new ParameterDefinition("test",
+                                                   new ParameterDefinition("booltest",
                                                                            ParameterType.Boolean,
                                                                            false),
                                                    new ParameterDefinition("bier",
@@ -62,13 +62,13 @@ public static class ParameterTest {
             }
         }
         else {
-            Parameter test = ConsoleParameters.getParameterByName("test");
-            bool testbool = test.getBoolValue();
+            Parameter booltest = ConsoleParameters.getParameterByName("booltest");
+            bool testbool = booltest.getBoolValue();
             if (testbool) {
-                Console.WriteLine("'test' was provided");
+                Console.WriteLine("'booltest' was provided");
             }
             else {
-                Console.WriteLine("'test' was not provided");
+                Console.WriteLine("'booltest' was not provided");
             }
             Parameter bier = ConsoleParameters.getParameterByName("bier");
             string[] bierWerte = bier.getStringValues();
@@ -93,6 +93,9 @@ public static class ParameterTest {
                 }
             }
             Parameter zahlen = ConsoleParameters.getParameterByName("zahlen");
+            if (zahlen.getNumberOfValues() == 0) {
+                Console.WriteLine("Parameter zahlen wurde nicht angegeben!");
+            }
             double[] zahlenWerte = zahlen.getDoubleValues();
             Console.WriteLine("Parameter zahlen hat folgende Werte:");
             foreach (double wert in zahlenWerte) {
@@ -105,6 +108,8 @@ public static class ParameterTest {
                 }
             }
         }
+        Console.WriteLine("\n" + ConsoleParameters.getParameters().Count + " parameters were derived from the definition.");
+        ConsoleParameters.dumpListOfParameters();
         return 0;
     }
 
