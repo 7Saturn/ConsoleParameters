@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 public enum ParameterType {
     String,
@@ -17,7 +19,7 @@ public class Parameter {
     int[] intValues;
     bool isTainted = false;
 
-    public Parameter(string newParameterName, //Only to be used to create boolean type parameters
+    public Parameter(string newParameterName, // Only to be used to create boolean type parameters
                      bool newValue) {
         if (   newParameterName == null
             || newParameterName.Length < 1) {
@@ -27,6 +29,30 @@ public class Parameter {
         this.type = ParameterType.Boolean;
         this.numberOfValues = 1;
         this.boolValue = newValue; //Funny thing is, Bools can never be tainted. Either they are present, or not. =)
+    }
+
+    // Das hier ist eigentlich Pferdescheiße! Die Exception kommt recht bald... Besser für die drei Typen selbst parsen
+
+    public Parameter(ParameterDefinition pDef,
+                     string[] values):this(pDef.getParameterName(),
+                                           pDef.getType(),
+                                           values) {
+    }
+
+    public Parameter(ParameterDefinition pDef,
+                     string values):this(pDef.getParameterName(),
+                                         pDef.getType(),
+                                         valueSplit(values)) {
+    }
+
+    public Parameter(ParameterDefinition pDef) {// For parameters without values provided
+        this.parameterName = pDef.getParameterName();
+        this.type = pDef.getType();
+        this.numberOfValues = 0;
+        this.stringValues = null;
+        this.uintValues = null;
+        this.intValues = null;
+        this.isTainted = true;
     }
 
     public Parameter(string newParameterName,
@@ -122,10 +148,18 @@ public class Parameter {
         }
         return uintValues;
     }
+
+    private static string[] valueSplit (string value) {
+        List<string> list1 = new List<string>(Regex.Split(value, @"\s*,\s*"));
+        List<string> list2 = new List<string>();
+        foreach (string element in list1) {
+            if (!element.Equals("")) list2.Add(element);
+        }
+        return list2.ToArray();
+    }
 }
 
-public class ParameterValuesRequiredException : System.Exception
-{
+public class ParameterValuesRequiredException : System.Exception {
     public ParameterValuesRequiredException() : base() { }
     public ParameterValuesRequiredException(string message) : base(message) { }
     public ParameterValuesRequiredException(string message, System.Exception inner) : base(message, inner) { }
@@ -134,8 +168,7 @@ public class ParameterValuesRequiredException : System.Exception
                                                System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
 }
 
-public class ParameterNameRequiredException : System.Exception
-{
+public class ParameterNameRequiredException : System.Exception {
     public ParameterNameRequiredException() : base() { }
     public ParameterNameRequiredException(string message) : base(message) { }
     public ParameterNameRequiredException(string message, System.Exception inner) : base(message, inner) { }
@@ -144,8 +177,7 @@ public class ParameterNameRequiredException : System.Exception
                                              System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
 }
 
-public class ParameterTypeIntegerRequiredException : System.Exception
-{
+public class ParameterTypeIntegerRequiredException : System.Exception {
     public ParameterTypeIntegerRequiredException() : base() { }
     public ParameterTypeIntegerRequiredException(string message) : base(message) { }
     public ParameterTypeIntegerRequiredException(string message, System.Exception inner) : base(message, inner) { }
@@ -154,8 +186,7 @@ public class ParameterTypeIntegerRequiredException : System.Exception
                                                     System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
 }
 
-public class ParameterTypeWrongForGetting : System.Exception
-{
+public class ParameterTypeWrongForGetting : System.Exception {
     public ParameterTypeWrongForGetting() : base() { }
     public ParameterTypeWrongForGetting(string message) : base(message) { }
     public ParameterTypeWrongForGetting(string message, System.Exception inner) : base(message, inner) { }

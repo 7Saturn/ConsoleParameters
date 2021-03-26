@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices; //Caller-Info
 
 public static class ConsoleParameters {
-    private static string ownFileName = Environment.GetCommandLineArgs()[0].Replace(Directory.GetCurrentDirectory(), ".");
+    private static string ownFileName = Environment.GetCommandLineArgs()[0].Replace(Directory.GetCurrentDirectory() + "/", "");
     private static string parameterPrefix;
     private static bool wasInitializedFlag = false;
 
@@ -14,14 +14,15 @@ public static class ConsoleParameters {
     private static List<ParameterDefinition> listOfParameterDefinitions = new List<ParameterDefinition>(); //If the programmer provided a faulty definition for initialization, he's not supposed to just catch that exception , but do it properly instead. So if he survives the checks, this list will only contain proper definitions.
     private static List<ParameterDefinition> doubledParameterDefinitions = new List<ParameterDefinition>(); // Entered by the programmer into the definition at least twice
 
-    //The parameter names here will have to include the prefix (--, - or /), in contrast to ParameterDefinitions and Parameters.
+    // The parameter names here will have to include the prefix (--, - or /), in contrast to ParameterDefinitions and Parameters.
     private static List<string> doubledParameterNamesInDefinition = new List<string>(); //The parameters provided by the Programmer at least twice
     private static List<string> allowedParameterNames = new List<string>(); //The parameters allowed according to the parameter definition provided
 
     private static List<string> allProvidedParameterNames = new List<string>(); // All parameters provided by the user, but not values (e. g. »--test« but not »test«)
     private static List<string> allowedProvidedParameterNames = new List<string>(); // All parameters provided by the user, but not values (e. g. »--test« but not »test«), that are acutally allowed by the definition
-    private static List<string> doubledParameterNames = new List<string>(); //The parameters provided by the user at least twice
+    private static List<string> doubledParameterNames = new List<string>(); // The parameters provided by the user at least twice
     private static List<string> missingParameterNames = new List<string>(); // All parameters present in the definition /not/ provided by the user
+    private static List<string> missingValueParameterNames = new List<string>(); // All parameters present in the definition and used by the user, but without values
     private static List<string> unknownParameterNames = new List<string>(); // All parameters provided by the user /not/ present in the definition, aka unknown parameters
     private static List<string> missingButRequiredParameterNames = new List<string>(); //All parameters omitted by the user but required of him
     private static List<string> residualArgs; //All the rest or args after removing all parameters and their values. This allowes things like 7za a archivename.7z -mx0, getting »a« as command, »archivename.7z« as archive name and still leave -mx0 as a parameter name that can be present or not.
@@ -148,8 +149,6 @@ public static class ConsoleParameters {
         }
         if (unknownParameterNames.Count > 0) ConsoleParameters.isTainted = true; //And that's bad.
 
-
-
         /*
           Checks to be implemented:
           * Checking for missing Parameter values
@@ -160,9 +159,11 @@ public static class ConsoleParameters {
           * Create Parameter report (missing, faulty). The parameter itself should know what's wrong with it.
             * Wrong number of arguments, doubled,
         */
+        List<string> allowedBoolParameterNames = new List<string>(); // Bools found
 
         foreach (ParameterDefinition boolParameterDefinition in boolParameterDefinitions) {
             string parameterName = withPrefix(boolParameterDefinition.getParameterName());
+            allowedBoolParameterNames.Add(parameterName);
             Parameter newBool;
             if (allowedProvidedParameterNames.Contains(parameterName)) {
                 newBool = new Parameter(boolParameterDefinition.getParameterName(), true); //Present, so flag will be set.
@@ -172,25 +173,55 @@ public static class ConsoleParameters {
             }
             listOfParameters.Add(newBool);
         }
-        foreach (ParameterDefinition pDef in newParameterDefinitions) {
-            string fullParamName = newParameterPrefix + pDef.getParameterName();
-            Parameter newParameter = null;
-            if (pDef.getType() == ParameterType.Boolean) {
-                newParameter = new Parameter(pDef.getParameterName(),
-                                             Array.Exists(args, element => element == fullParamName));
+
+        //Remove unknown and bool Parameters, which leaves only »real« Parameters and their values.
+        List<string> resArgs = new List<string>();
+        foreach (string arg in args) {
+            if (!(   allowedBoolParameterNames.Contains(arg)
+                  || unknownParameterNames.Contains(arg))){
+                resArgs.Add(arg);
             }
-            if (pDef.getType() == ParameterType.String) {
-                newParameter = new Parameter(pDef.getParameterName(),
-                                             ParameterType.String,
-                                             args);
+        }
+
+        //So from here on, »only« an analysis of Parameter-value-pairs in resArgs is required.
+        while (resArgs.Count > 0) {
+            if ((resArgs.Count % 2) == 1) {
+                //uneven argument number, that cannot be good:
+                if (!hasPrefix(resArgs[0])) {// just another value, that's OK.
+                    residualArgs.Add(resArgs[0]);
+                }
+                else {
+                    Console.WriteLine("defekt");
+                    ParameterDefinition defectOne = getParameterDefinitionByNameInternal(withoutPrefix(resArgs[0]));
+                    listOfParameters.Add(new Parameter (defectOne));
+                    ConsoleParameters.isTainted = true;
+                }
+                resArgs.RemoveAt(0);
             }
-            /*            if (pDef.getType() == ParameterType.Integer) {
-                newParameter = new Parameter();
+            else {
+                //at least two values are present. First ought to be the parameter name, second the value. Let's check it out!
+                if (!hasPrefix(resArgs[0])) { //Normal residual value, no parameter. Next!
+                    residualArgs.Add(resArgs[0]);
+                    resArgs.RemoveAt(0);
+                }
+                else {//First one is a parameter name
+                    //So the first one is a parameter. Second may not be!
+                    if (!hasPrefix(resArgs[1])) {// Bingo!
+                        ParameterDefinition theRightOne = getParameterDefinitionByNameInternal(withoutPrefix(resArgs[0]));
+                        listOfParameters.Add(new Parameter (theRightOne, resArgs[1]));
+                        resArgs.RemoveAt(0);
+                        resArgs.RemoveAt(0);
+                    }
+                    else {// That's bad. Both are parameter names... But as both must be allowed ones, the first one simply lacks values... Next!
+                        Console.WriteLine("defekt");
+                        ParameterDefinition defectOne = getParameterDefinitionByNameInternal(withoutPrefix(resArgs[0]));
+                        listOfParameters.Add(new Parameter (defectOne));
+                        resArgs.RemoveAt(0);
+                        ConsoleParameters.isTainted = true;
+                    }
+
+                }
             }
-            if (pDef.getType() == ParameterType.Uinteger) {
-                newParameter = new Parameter();
-            }*/
-            if (newParameter != null) listOfParameters.Add(newParameter);
         }
         ConsoleParameters.wasInitializedFlag = true;
     }
@@ -222,7 +253,6 @@ public static class ConsoleParameters {
         ensureInitializationDone();
         return missingButRequiredParameterNames;
     }
-
 
     public static bool getIsTainted() {
         ensureInitializationDone();
@@ -273,6 +303,13 @@ public static class ConsoleParameters {
 
     public static ParameterDefinition getParameterDefinitionByName(string parameterName) {
         ensureInitializationDone();
+        foreach (ParameterDefinition currentParameter in listOfParameterDefinitions) {
+            if (currentParameter.getParameterName().Equals(parameterName)) return currentParameter;
+        }
+        return null;
+    }
+
+    private static ParameterDefinition getParameterDefinitionByNameInternal(string parameterName) {
         foreach (ParameterDefinition currentParameter in listOfParameterDefinitions) {
             if (currentParameter.getParameterName().Equals(parameterName)) return currentParameter;
         }
@@ -330,7 +367,6 @@ public static class ConsoleParameters {
                 && value.Substring(0,
                                    ConsoleParameters.parameterPrefix.Length).Equals(ConsoleParameters.parameterPrefix));
     }
-
 }
 
 public class ParameterPrefixFaultyException : System.Exception {

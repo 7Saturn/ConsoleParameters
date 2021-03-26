@@ -13,6 +13,7 @@ public static class Efstats2 {
                                                                            true),
                                                },
                                                args);
+        Console.WriteLine(ConsoleParameters.getStartCommand());
         Console.WriteLine("The following console values were provided: " + commaConcatStringList(args));
         if (ConsoleParameters.getIsTainted()) {
             List<string> missingParameters = ConsoleParameters.getMissingButRequiredParameterNames();
@@ -39,8 +40,11 @@ public static class Efstats2 {
         else {
             Console.WriteLine("'test' was not provided");
         }
-        //Console.WriteLine(ConsoleParameters.getStartCommand());
 
+        string[] werte = ConsoleParameters.getParameterByName("bier").getStringValues();
+        foreach (string wert in werte) {
+            Console.WriteLine(wert);
+        }
         return 0;
     }
 
