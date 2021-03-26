@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Globalization;
 
 public enum ParameterType {
     String,
     Integer,
     Uinteger,
+    Double,
     Boolean
 }
 
@@ -15,6 +17,7 @@ public class Parameter {
     uint numberOfValues;
     bool boolValue;
     string[] stringValues;
+    double[] doubleValues;
     uint[] uintValues;
     int[] intValues;
     bool isTainted = false;
@@ -31,28 +34,47 @@ public class Parameter {
         this.boolValue = newValue; //Funny thing is, Bools can never be tainted. Either they are present, or not. =)
     }
 
-    // Das hier ist eigentlich Pferdescheiße! Die Exception kommt recht bald... Besser für die drei Typen selbst parsen
-
     public Parameter(ParameterDefinition pDef,
-                     string[] values):this(pDef.getParameterName(),
-                                           pDef.getType(),
-                                           values) {
+                     string[] values) {
+        Parameter newOne = new Parameter (pDef.getParameterName(),
+                                          pDef.getType(),
+                                          values);
+        this.parameterName = pDef.getParameterName();
+        this.type = pDef.getType();
+        this.numberOfValues = newOne.getNumberOfValues();
+        this.boolValue = newOne.getBoolValueUnsafe();
+        this.stringValues = newOne.getStringValuesUnsafe();
+        this.uintValues = newOne.getUintegerValuesUnsafe();
+        this.intValues = newOne.getIntegerValuesUnsafe();
+        this.doubleValues = newOne.getDoubleValuesUnsafe();
+        this.isTainted = newOne.getIsTainted();
     }
 
     public Parameter(ParameterDefinition pDef,
-                     string values):this(pDef.getParameterName(),
-                                         pDef.getType(),
-                                         valueSplit(values)) {
+                     string values) {
+        Parameter newOne = new Parameter (pDef.getParameterName(),
+                                          pDef.getType(),
+                                          valueSplit(values));
+        this.parameterName = pDef.getParameterName();
+        this.type = pDef.getType();
+        this.numberOfValues = newOne.getNumberOfValues();
+        this.boolValue = newOne.getBoolValueUnsafe();
+        this.stringValues = newOne.getStringValuesUnsafe();
+        this.uintValues = newOne.getUintegerValuesUnsafe();
+        this.intValues = newOne.getIntegerValuesUnsafe();
+        this.doubleValues = newOne.getDoubleValuesUnsafe();
+        this.isTainted = newOne.getIsTainted();
     }
 
-    public Parameter(ParameterDefinition pDef) {// For parameters without values provided
+    public Parameter(ParameterDefinition pDef,
+                     bool isTainted) {// For parameters without values provided
         this.parameterName = pDef.getParameterName();
         this.type = pDef.getType();
         this.numberOfValues = 0;
         this.stringValues = null;
         this.uintValues = null;
         this.intValues = null;
-        this.isTainted = true;
+        this.isTainted = isTainted;
     }
 
     public Parameter(string newParameterName,
@@ -68,49 +90,53 @@ public class Parameter {
             throw new ParameterValuesRequiredException("For a parameter a list of parameter values is required (at least an empty list)!");
         }
 
-        this.numberOfValues = (uint) providedValues.Length;
 
         if (newType == ParameterType.String) {
             string[] tempStrings=new string[providedValues.Length];
             Array.Copy(providedValues, tempStrings, providedValues.Length);
             this.stringValues = tempStrings;
+            this.numberOfValues = (uint) providedValues.Length;
         }
         if (newType == ParameterType.Integer) {
-            int[] intValues = new int[providedValues.Length];
-            for (uint counter = 0; counter < providedValues.Length; counter++) {
-                int tempValue;
-                bool success = Int32.TryParse(providedValues[counter], out tempValue);
-                if (!success) {
-                    throw new ParameterTypeIntegerRequiredException("Parameter '" + newParameterName + "' could not be parsed as integer but is supposed to be one.");
-                }
-                intValues[counter] = tempValue;
+            this.intValues = intArray(providedValues);
+            if (this.intValues == null) {
+                this.numberOfValues = 0;
             }
-            this.intValues = intValues;
+            else {
+                this.numberOfValues = (uint) providedValues.Length;
+            }
+        }
+        if (newType == ParameterType.Double) {
+            this.doubleValues = doubleArray(providedValues);
+            if (this.doubleValues == null) {
+                this.numberOfValues = 0;
+            }
+            else {
+                this.numberOfValues = (uint) providedValues.Length;
+            }
         }
         if (newType == ParameterType.Uinteger) {
-            uint[] intValues = new uint[providedValues.Length];
-            for (uint counter = 0; counter < providedValues.Length; counter++) {
-                uint tempValue;
-                bool success = UInt32.TryParse(providedValues[counter], out tempValue);
-                if (!success) {
-                    throw new ParameterTypeIntegerRequiredException("Parameter '" + newParameterName + "' could not be parsed as uinteger but is supposed to be one.");
-                }
-                intValues[counter] = tempValue;
+            this.uintValues = uIntArray(providedValues);
+            if (this.uintValues == null) {
+                this.numberOfValues = 0;
             }
-            this.uintValues = intValues;
-
+            else {
+                this.numberOfValues = (uint) providedValues.Length;
+            }
         }
         if (newType == ParameterType.Boolean) {
             this.numberOfValues = 1;
             this.boolValue = true;
         }
-        else {
-            this.numberOfValues = (uint) providedValues.Length;
-        }
+        if (this.numberOfValues == 0) this.isTainted = true;
     }
 
     public string getName() {
         return parameterName;
+    }
+
+    public bool getIsTainted() {
+        return isTainted;
     }
 
     public ParameterType getType() {
@@ -128,6 +154,10 @@ public class Parameter {
         return boolValue;
     }
 
+    private bool getBoolValueUnsafe() {
+        return boolValue;
+    }
+
     public string[] getStringValues() {
         if (type != ParameterType.String) {
             throw new ParameterTypeWrongForGetting("String parameter values requested but parameter is not of type String.");
@@ -135,10 +165,27 @@ public class Parameter {
         return stringValues;
     }
 
-    public int[] getIntegerValues() {
-        if (type != ParameterType.Integer) {
-            throw new ParameterTypeWrongForGetting("Int parameter values requested but parameter is not of type Integer.");
+    private string[] getStringValuesUnsafe() {
+        return stringValues;
+    }
+
+    public double[] getDoubleValues() {
+        if (type != ParameterType.Double) {
+            throw new ParameterTypeWrongForGetting("Double parameter values requested but parameter is not of type Double.");
         }
+        return doubleValues;
+    }
+
+    private double[] getDoubleValuesUnsafe() {
+        return doubleValues;
+    }
+
+    public int[] getIntegerValues() {
+        if (type != ParameterType.Integer) throw new ParameterTypeWrongForGetting("Integer parameter values requested but parameter is not of type Integer.");
+        return intValues;
+    }
+
+    private int[] getIntegerValuesUnsafe() {
         return intValues;
     }
 
@@ -149,6 +196,10 @@ public class Parameter {
         return uintValues;
     }
 
+    private uint[] getUintegerValuesUnsafe() {
+        return uintValues;
+    }
+
     private static string[] valueSplit (string value) {
         List<string> list1 = new List<string>(Regex.Split(value, @"\s*,\s*"));
         List<string> list2 = new List<string>();
@@ -156,6 +207,46 @@ public class Parameter {
             if (!element.Equals("")) list2.Add(element);
         }
         return list2.ToArray();
+    }
+
+    private static uint[] uIntArray(string[] strings) {
+        uint[] uIntValues = new uint[strings.Length];
+        for (uint counter = 0; counter < strings.Length; counter++) {
+            uint tempValue;
+            bool success = UInt32.TryParse(strings[counter], out tempValue);
+            if (!success) return null;
+            uIntValues[counter] = tempValue;
+        }
+        return uIntValues;
+    }
+
+    private static int[] intArray(string[] strings) {
+        int[] intValues = new int[strings.Length];
+        for (uint counter = 0; counter < strings.Length; counter++) {
+            int tempValue;
+            bool success = Int32.TryParse(strings[counter], out tempValue);
+            if (!success) {
+                return null;
+            }
+            intValues[counter] = tempValue;
+        }
+        return intValues;
+    }
+
+    private static double[] doubleArray(string[] strings) {
+        double[] doubleValues = new double[strings.Length];
+        for (uint counter = 0; counter < strings.Length; counter++) {
+            double tempValue;
+            /* "en-US" is required, as for example in Germany, -3.3 would become -33 instead of the value.
+               As we use "," as separators for multiple values, it is not available for number entering.
+               Aside from that, people are rather used to use . as decimal point. */
+            bool success = double.TryParse(strings[counter], NumberStyles.Number, CultureInfo.CreateSpecificCulture ("en-US"), out tempValue);
+            if (!success) {
+                return null;
+            }
+            doubleValues[counter] = tempValue;
+        }
+        return doubleValues;
     }
 }
 

@@ -1,8 +1,8 @@
 public class ParameterDefinition {
-    string parameterName; //No extension here! No --, - or /!
+    string parameterName; //No extension here! No --, - or /! Same goes for Parameter class
     bool isRequired;
-    uint minValues;
-    uint maxValues;
+    uint minValues; //This...
+    uint maxValues; //...and this are currently not used. But they ought to limit what the user can provide, at some point. This requires enhancing the Parameter Class with corresponding Checks
     ParameterType type;
     public ParameterDefinition(string newParameterName,
                                ParameterType newType,
@@ -15,7 +15,7 @@ public class ParameterDefinition {
         }
         if (   newIsRequired
             && newType == ParameterType.Boolean) {
-            throw new ParameterDefinitionRequiredException("Parameters of type Boolean may never be required Parameters!");
+            throw new ParameterDefinitionRequiredException("Parameters of type Boolean may never be required Parameters!"); // That's the trick... Their presence in the provided parameters marks them as true, their absence marks them as false.
         }
         this.parameterName = newParameterName;
         this.type = newType;

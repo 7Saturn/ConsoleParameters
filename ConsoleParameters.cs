@@ -3,10 +3,20 @@ using System.IO;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices; //Caller-Info
 
+/* Ideas for expansion:
+
+ * Automatic Help-Text generation: ParameterDefinition gets a description text and a summary text is provided, too. This way a generic Help-String can be generated, including how to run the command with optional and required parameters, description of parameter's effect and a overall description, what the program does or requires. Can even be automatically invoked, if the Parameters were tainted, somehow.
+ * Parameters with some requirements for the number of values (e. g. 2-4 values are required, no more, no less)
+ * Special requirements for the provided values might as well be checked by a CallBack/Delegate, that does checks on them.
+ * A more explicit check of what might be wrong with a parameter, would be nice: List of enum values that show, what went on, e. g., number of values wrong, values missing, parsing error, parameter missing, parameter was provided more than once.
+
+*/
+
+
 public static class ConsoleParameters {
-    private static string ownFileName = Environment.GetCommandLineArgs()[0].Replace(Directory.GetCurrentDirectory() + "/", "");
+    private static string ownFileName = Environment.GetCommandLineArgs()[0].Replace(Directory.GetCurrentDirectory() + "/", ""); //Only the file name, e. g. TestParam.exe
     private static string parameterPrefix;
-    private static bool wasInitializedFlag = false;
+    private static bool wasInitializedFlag = false; // Important, so that nobody tries bullshitting around with it, before it was set up properly.
 
     private static List<Parameter> listOfParameters = new List<Parameter>(); //This is where the actual data will be put, that could be derived from the provided parameters. If something smells fishy, this should indicate it:
     private static bool isTainted = false; //If something goes wrong during parsing, this flag can be queried very easily (instead of having to recheck all those lists shown above).
@@ -43,9 +53,9 @@ public static class ConsoleParameters {
         }
         ConsoleParameters.parameterPrefix = newParameterPrefix;
 
-        //Some general checks, just to make sure, no bullshit was defined by the programmer.
+        // Some general checks, just to make sure, no bullshit was defined *by the programmer*.
 
-        //Do the definitions check out?
+        // Do the definitions check out?
         if (   newParameterDefinitions == null
             || newParameterDefinitions.Length < 1) {
             throw new ParameterPrefixFaultyException("Parameter initialisation failed. The parameter definition array must provide at least one parameter definition. If you only want the provided words from the console, don't use this class, take args directly.");
@@ -80,30 +90,27 @@ public static class ConsoleParameters {
             throw new ParameterNameDoubledException("Parameter initialisation failed. The following parameter names are present at least twice in the parameter definition:\n" + parameterNames);
         }
 
-        //And of course the actual arguments have to be OK, too.
-        if (args == null) {
-            throw new ParameterArgsMissingException("Parameter initialization failed. The parameter string array must provide at least an empty string array (usually that is 'args' provided to Main).");
-        }
+        // And of course the actual arguments provided have to be OK, too.
+        if (args == null) throw new ParameterArgsMissingException("Parameter initialization failed. The parameter string array must provide at least an empty string array (usually that is 'args' provided to Main).");
 
-        //So from here on, all parameter definition values are OK. Let's see, what the user provided on the console...
-
+        //So from here on, all ParameterDefinitions are OK. Let's see, what the user provided on the console...
         residualArgs = new List<string>();
 
-        List<ParameterDefinition> boolParameterDefinitions     = new List<ParameterDefinition>(); // Only Bool Parameters
+        List<ParameterDefinition> boolParameterDefinitions     = new List<ParameterDefinition>(); // Only Bool ParameterDefinitions, which will not require any provided values. Their presence (or lack of it) already gives you true or false
         List<ParameterDefinition> nonBoolParameterDefinitions  = new List<ParameterDefinition>(); // Those require values, in contrast to the bools, which are the value by themselves.
-        List<ParameterDefinition> stringParameterDefinitions   = new List<ParameterDefinition>(); // These will return a list of strings
-        List<ParameterDefinition> integerParameterDefinitions  = new List<ParameterDefinition>(); // These will return a list of integer values
-        List<ParameterDefinition> uintegerParameterDefinitions = new List<ParameterDefinition>(); // These will return a list of unsigned integer values
-        List<ParameterDefinition> requiredParameterDefinitions = new List<ParameterDefinition>(); // These will have to be provided by the user
+        List<ParameterDefinition> requiredParameterDefinitions = new List<ParameterDefinition>(); // These parameters will have to be provided by the user
 
+        // Let's fill those three. These lists will make our work easier later
         foreach (ParameterDefinition pDef in newParameterDefinitions) {
-            if (pDef.getType() == ParameterType.Boolean) boolParameterDefinitions.Add(pDef);
-            if (pDef.getType() == ParameterType.String) stringParameterDefinitions.Add(pDef);
-            if (pDef.getType() == ParameterType.Integer) integerParameterDefinitions.Add(pDef);
-            if (pDef.getType() == ParameterType.Uinteger) uintegerParameterDefinitions.Add(pDef);
-            if (pDef.getType() != ParameterType.Boolean) nonBoolParameterDefinitions.Add(pDef);
+            if (pDef.getType() == ParameterType.Boolean) {
+                boolParameterDefinitions.Add(pDef);
+            }
+            else {
+                nonBoolParameterDefinitions.Add(pDef);
+            }
             if (pDef.getIsRequired()) requiredParameterDefinitions.Add(pDef);
         }
+
         // Are there required parameters missing?
         foreach (ParameterDefinition missingCandidate in requiredParameterDefinitions) {
             string fullName = withPrefix(missingCandidate.getParameterName());
@@ -115,7 +122,7 @@ public static class ConsoleParameters {
 
         if (missingButRequiredParameterNames.Count > 0) ConsoleParameters.isTainted = true; // If so, that's bad!
 
-        //What Parameters are missing in general?
+        // Which Parameters are missing in general?
         foreach (ParameterDefinition pDef in newParameterDefinitions) {
             string fullName = withPrefix(pDef.getParameterName());
             if (!Array.Exists(args, element => element == fullName)) {
@@ -127,9 +134,7 @@ public static class ConsoleParameters {
         foreach (string parameterName in args) {
             if (hasPrefix(parameterName)) {// So is actually a parameter name
                 if (allProvidedParameterNames.Contains(parameterName)) {
-                    if (!doubledParameterNames.Contains(parameterName)) {
-                        doubledParameterNames.Add(parameterName);
-                    }
+                    if (!doubledParameterNames.Contains(parameterName)) doubledParameterNames.Add(parameterName);
                 }
                 else {
                     allProvidedParameterNames.Add(parameterName);
@@ -140,35 +145,26 @@ public static class ConsoleParameters {
         if (doubledParameterNames.Count > 0) ConsoleParameters.isTainted = true; //If so, that's bad, too!
 
         foreach (string parameterName in allProvidedParameterNames) {
-            if (!allowedParameterNames.Contains(parameterName)) { //That's not part of the definition!
+            if (!allowedParameterNames.Contains(parameterName)) { // That one is not part of the definition!
                 unknownParameterNames.Add(parameterName);
             }
             else {
                 allowedProvidedParameterNames.Add(parameterName);
             }
         }
+
         if (unknownParameterNames.Count > 0) ConsoleParameters.isTainted = true; //And that's bad.
 
-        /*
-          Checks to be implemented:
-          * Checking for missing Parameter values
-          * Removing all strings that are part of a parameter name and value, returning the residual strings as well somehow
-          * Checking for parameter contents.
-            * Bools are always fine, check for all of them, present = true, not present = false
-            * all the rest will have to be analyzed. Format: --parameter "Values,comma,separated", "\s*,\s*" as separator. No multiple strings for one parameter during entry! If the user wants to provide multiple values, he shall take commas and if neccessary, inch-characters.
-          * Create Parameter report (missing, faulty). The parameter itself should know what's wrong with it.
-            * Wrong number of arguments, doubled,
-        */
-        List<string> allowedBoolParameterNames = new List<string>(); // Bools found
+        List<string> allowedBoolParameterNames = new List<string>(); // Bools allowed for the user
 
         foreach (ParameterDefinition boolParameterDefinition in boolParameterDefinitions) {
             string parameterName = withPrefix(boolParameterDefinition.getParameterName());
             allowedBoolParameterNames.Add(parameterName);
             Parameter newBool;
-            if (allowedProvidedParameterNames.Contains(parameterName)) {
+            if (allowedProvidedParameterNames.Contains(parameterName)) { // A Bool defined in the Definitions and given by the user
                 newBool = new Parameter(boolParameterDefinition.getParameterName(), true); //Present, so flag will be set.
             }
-            else {
+            else {// A Bool defined in the Defintions, but not give by the user
                 newBool = new Parameter(boolParameterDefinition.getParameterName(), false); //Not present, so flag unset.
             }
             listOfParameters.Add(newBool);
@@ -176,6 +172,8 @@ public static class ConsoleParameters {
 
         //Remove unknown and bool Parameters, which leaves only »real« Parameters and their values.
         List<string> resArgs = new List<string>();
+
+        //Let's remove Bools, as they were already completed and unknown parameters, as we cannot do anything with them anyways. The rest we work with.
         foreach (string arg in args) {
             if (!(   allowedBoolParameterNames.Contains(arg)
                   || unknownParameterNames.Contains(arg))){
@@ -183,45 +181,56 @@ public static class ConsoleParameters {
             }
         }
 
-        //So from here on, »only« an analysis of Parameter-value-pairs in resArgs is required.
+        //So from here on, »only« an analysis of Parameter-value-pairs is required.
         while (resArgs.Count > 0) {
-            if ((resArgs.Count % 2) == 1) {
-                //uneven argument number, that cannot be good:
-                if (!hasPrefix(resArgs[0])) {// just another value, that's OK.
+            if ((resArgs.Count) == 1) { //Only one, so there cannot be any values provided.
+                if (!hasPrefix(resArgs[0])) {// just another lone (residual) value, that's OK.
                     residualArgs.Add(resArgs[0]);
                 }
-                else {
-                    Console.WriteLine("defekt");
+                else { // Last one is a parameter name, so no values.
                     ParameterDefinition defectOne = getParameterDefinitionByNameInternal(withoutPrefix(resArgs[0]));
-                    listOfParameters.Add(new Parameter (defectOne));
+                    listOfParameters.Add(new Parameter (defectOne, true));
                     ConsoleParameters.isTainted = true;
+                    missingValueParameterNames.Add(defectOne.getParameterName());
                 }
                 resArgs.RemoveAt(0);
             }
             else {
-                //at least two values are present. First ought to be the parameter name, second the value. Let's check it out!
-                if (!hasPrefix(resArgs[0])) { //Normal residual value, no parameter. Next!
+                //at least two values are present. First one ought to be the parameter name, second the value. Let's check it out!
+                if (!hasPrefix(resArgs[0])) { //It's a value, no parameter name. Next!
                     residualArgs.Add(resArgs[0]);
                     resArgs.RemoveAt(0);
                 }
-                else {//First one is a parameter name
-                    //So the first one is a parameter. Second may not be!
-                    if (!hasPrefix(resArgs[1])) {// Bingo!
+                else {
+                    //So the first one is a parameter name. Second should not be a parameter name!
+                    if (!hasPrefix(resArgs[1])) {// Bingo! Second one holds values
                         ParameterDefinition theRightOne = getParameterDefinitionByNameInternal(withoutPrefix(resArgs[0]));
                         listOfParameters.Add(new Parameter (theRightOne, resArgs[1]));
                         resArgs.RemoveAt(0);
                         resArgs.RemoveAt(0);
                     }
                     else {// That's bad. Both are parameter names... But as both must be allowed ones, the first one simply lacks values... Next!
-                        Console.WriteLine("defekt");
                         ParameterDefinition defectOne = getParameterDefinitionByNameInternal(withoutPrefix(resArgs[0]));
-                        listOfParameters.Add(new Parameter (defectOne));
+                        listOfParameters.Add(new Parameter (defectOne, true));
                         resArgs.RemoveAt(0);
                         ConsoleParameters.isTainted = true;
+                        missingValueParameterNames.Add(defectOne.getParameterName());
                     }
 
                 }
             }
+        }
+
+        //All parameters defined but not provided and not required can be added as OKish but with no values. Let the programmer decide, what to do with those missing ones...
+        foreach (ParameterDefinition pDef in newParameterDefinitions) {
+            if (!allProvidedParameterNames.Contains(pDef.getParameterName())) {
+                listOfParameters.Add(new Parameter(pDef, false));
+            }
+        }
+
+        // If only one of them is faulty, the entire list must be marked faulty as well!
+        foreach (Parameter toCheck in listOfParameters) {
+            if (toCheck.getIsTainted()) ConsoleParameters.isTainted = true;
         }
         ConsoleParameters.wasInitializedFlag = true;
     }
@@ -293,6 +302,11 @@ public static class ConsoleParameters {
         return ConsoleParameters.allowedProvidedParameterNames;
     }
 
+    public static List<string> getMissingValueParameterNames() {
+        ensureInitializationDone();
+        return missingValueParameterNames;
+    }
+
     public static Parameter getParameterByName(string parameterName) {
         ensureInitializationDone();
         foreach (Parameter currentParameter in listOfParameters) {
@@ -322,10 +336,8 @@ public static class ConsoleParameters {
         }
     }
 
-    public static bool parameterWasFound(string parameterName) {
-        ensureInitializationDone();
-        Parameter result = getParameterByName(parameterName);
-        return result != null;
+    public static List<string> getResidualArgs() {
+        return residualArgs;
     }
 
     public static bool parameterIsSet(string parameterName) {
