@@ -16,10 +16,10 @@ public class Parameter {
     ParameterType type;
     uint numberOfValues;
     bool boolValue;
-    string[] stringValues;
-    double[] doubleValues;
-    uint[] uintValues;
-    int[] intValues;
+    string[] stringValues = new string[0]; //These default values will be overwritten, if the corresponding data is provided. But it is initalizes for all of the datatypes as debugging these null values is a real bitch for someone who does not know they are null (unrequired parameters that were not provided will be untainted but still empty)!
+    double[] doubleValues = new double[0];
+    uint[] uintValues = new uint[0];
+    int[] intValues = new int[0];
     bool isTainted = false;
 
     public Parameter(string newParameterName, // Only to be used to create boolean type parameters
@@ -178,6 +178,27 @@ public class Parameter {
 
     private double[] getDoubleValuesUnsafe() {
         return doubleValues;
+    }
+
+    public override string ToString() {
+        string result = parameterName;
+        result += " " + numberOfValues + " x";
+        result += " " + type.ToString();
+        result += " " + boolValue.ToString();
+        if (stringValues != null) result += " string";
+        if (doubleValues != null) result += " double";
+        if (uintValues != null) result += " uint";
+        if (intValues != null) result += " int";
+        if (isTainted) {
+            result += "tainted";
+        }
+        else {
+            result += " OK";
+        }
+        /*
+    bool isTainted = false;
+    */
+        return result;
     }
 
     public int[] getIntegerValues() {
