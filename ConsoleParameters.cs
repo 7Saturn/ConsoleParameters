@@ -223,7 +223,7 @@ public static class ConsoleParameters {
 
         //All parameters defined but not provided and not required can be added as OKish but with no values. Let the programmer decide, what to do with those missing ones...
         foreach (ParameterDefinition pDef in newParameterDefinitions) {
-            if (!allProvidedParameterNames.Contains(pDef.getParameterName())) {
+            if (!allProvidedParameterNames.Contains(withPrefix(pDef.getParameterName()))) {
                 listOfParameters.Add(new Parameter(pDef, false));
             }
         }
@@ -378,6 +378,12 @@ public static class ConsoleParameters {
         return (   value.Length > ConsoleParameters.parameterPrefix.Length
                 && value.Substring(0,
                                    ConsoleParameters.parameterPrefix.Length).Equals(ConsoleParameters.parameterPrefix));
+    }
+
+    public static void dumpListOfParameters () {
+        foreach (Parameter p in listOfParameters) {
+            Console.WriteLine(p.ToString());
+        }
     }
 }
 
