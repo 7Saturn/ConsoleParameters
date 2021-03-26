@@ -71,9 +71,6 @@ public class Parameter {
         this.parameterName = pDef.getParameterName();
         this.type = pDef.getType();
         this.numberOfValues = 0;
-        this.stringValues = null;
-        this.uintValues = null;
-        this.intValues = null;
         this.isTainted = isTainted;
     }
 
@@ -184,20 +181,17 @@ public class Parameter {
         string result = parameterName;
         result += " " + numberOfValues + " x";
         result += " " + type.ToString();
-        result += " " + boolValue.ToString();
-        if (stringValues != null) result += " string";
-        if (doubleValues != null) result += " double";
-        if (uintValues != null) result += " uint";
-        if (intValues != null) result += " int";
+        if (type == ParameterType.Boolean) result += " " + boolValue.ToString();
+        if (stringValues != null && stringValues.Length > 0) result += " " + stringValues.Length + " string(s)";
+        if (doubleValues != null && doubleValues.Length > 0) result += " " + doubleValues.Length + " double(s)";
+        if (uintValues   != null &&   uintValues.Length > 0) result += " " + uintValues.Length + " uint(s)";
+        if (intValues    != null &&    intValues.Length > 0) result += " " + intValues.Length + " int(s)";
         if (isTainted) {
             result += "tainted";
         }
         else {
             result += " OK";
         }
-        /*
-    bool isTainted = false;
-    */
         return result;
     }
 
