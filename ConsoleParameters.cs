@@ -223,7 +223,8 @@ public static class ConsoleParameters {
 
         //All parameters defined but not provided and not required can be added as OKish but with no values. Let the programmer decide, what to do with those missing ones...
         foreach (ParameterDefinition pDef in newParameterDefinitions) {
-            if (!allProvidedParameterNames.Contains(withPrefix(pDef.getParameterName()))) {
+            if (   !allProvidedParameterNames.Contains(withPrefix(pDef.getParameterName())) // Not provided values are added as default with no content
+                && pDef.getType() != ParameterType.Boolean) { // Except for bools, of course. They were already taken care of above.
                 listOfParameters.Add(new Parameter(pDef, false));
             }
         }
