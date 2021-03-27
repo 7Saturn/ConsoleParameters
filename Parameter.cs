@@ -11,16 +11,27 @@ public enum ParameterType {
     Boolean
 }
 
+public enum ParameterFlaw {
+    // COMPLETE:
+    ParseError,
+    ValuesMissing,
+    TooManyValues,
+    TooFewValues,
+    RuleViolation, //Not used, yet, but will be: A rule can be attached to a Parameterdefintion. If it returns false, then this is set. (E. g., values must have a certain sum and the values do not meet that criterion, then it's marked with this.)
+    ParameterMissing,
+}
+
 public class Parameter {
     string parameterName; //Those must not contain the prefix --, - or /! Just like in the ParameterDefinition
     ParameterType type;
     uint numberOfValues;
     bool boolValue;
-    string[] stringValues = new string[0]; //These default values will be overwritten, if the corresponding data is provided. But it is initalizes for all of the datatypes as debugging these null values is a real bitch for someone who does not know they are null (unrequired parameters that were not provided will be untainted but still empty)!
+    string[] stringValues = new string[0]; //These default values will be overwritten, if the corresponding data is provided. But it is initalized for all of the datatypes as debugging these null values is a real bitch for someone who does not know they might be null (unrequired parameters that were not provided will be untainted but still empty)!
     double[] doubleValues = new double[0];
     uint[] uintValues = new uint[0];
     int[] intValues = new int[0];
     bool isTainted = false;
+    List<ParameterFlaw> flaws = new List<ParameterFlaw>();
 
     public Parameter(string newParameterName, // Only to be used to create boolean type parameters
                      bool newValue) {
@@ -38,7 +49,9 @@ public class Parameter {
                      string[] values) {
         Parameter newOne = new Parameter (pDef.getParameterName(),
                                           pDef.getType(),
-                                          values);
+                                          values,
+                                          pDef.getMinValues(),
+                                          pDef.getMaxValues());
         this.parameterName = pDef.getParameterName();
         this.type = pDef.getType();
         this.numberOfValues = newOne.getNumberOfValues();
@@ -47,14 +60,24 @@ public class Parameter {
         this.uintValues = newOne.getUintegerValuesUnsafe();
         this.intValues = newOne.getIntegerValuesUnsafe();
         this.doubleValues = newOne.getDoubleValuesUnsafe();
+        this.flaws = newOne.getFlaws();
         this.isTainted = newOne.getIsTainted();
     }
 
     public Parameter(ParameterDefinition pDef,
                      string values) {
+        string[] splitString;
+        if (pDef.getNoSplit()) {
+            splitString = new string[]{values};
+        }
+        else {
+            splitString = valueSplit(values);
+        }
         Parameter newOne = new Parameter (pDef.getParameterName(),
                                           pDef.getType(),
-                                          valueSplit(values));
+                                          splitString,
+                                          pDef.getMinValues(),
+                                          pDef.getMaxValues());
         this.parameterName = pDef.getParameterName();
         this.type = pDef.getType();
         this.numberOfValues = newOne.getNumberOfValues();
@@ -63,20 +86,33 @@ public class Parameter {
         this.uintValues = newOne.getUintegerValuesUnsafe();
         this.intValues = newOne.getIntegerValuesUnsafe();
         this.doubleValues = newOne.getDoubleValuesUnsafe();
+        this.flaws = newOne.getFlaws();
         this.isTainted = newOne.getIsTainted();
     }
 
     public Parameter(ParameterDefinition pDef,
-                     bool isTainted) {// For parameters without values provided
+                     bool isTainted) {// For parameters without values provided!
         this.parameterName = pDef.getParameterName();
         this.type = pDef.getType();
         this.numberOfValues = 0;
         this.isTainted = isTainted;
+        if (   this.numberOfValues == 0
+            && pDef.getIsRequired()) this.isTainted = true; //If it's required, it's required!
+        if (isTainted) { //Means, nothing was provided but the parameter was present!
+            this.flaws.Add(ParameterFlaw.ValuesMissing);
+            this.flaws.Add(ParameterFlaw.TooFewValues);
+        }
+        else {//Means the parameter was not even present. That's not neccessarily wrong so it's not automatically tainting.
+            this.flaws.Add(ParameterFlaw.ParameterMissing);
+        }
     }
 
     public Parameter(string newParameterName,
                      ParameterType newType,    // Will always be provided (cannot be defined as null by the caller), so no exception required!
-                     string[] providedValues) {
+                     string[] providedValues,
+                     uint newMinValues = 0,
+                     uint newMaxValues = 0) {
+        // COMPLETE: Value-Rule must be checked
         if (   newParameterName == null
             || newParameterName.Length < 1) {
             throw new ParameterNameRequiredException("For a parameter definition a parameter name of at least one character length is required!");
@@ -87,9 +123,18 @@ public class Parameter {
             throw new ParameterValuesRequiredException("For a parameter a list of parameter values is required (at least an empty list)!");
         }
 
+        if (newType == ParameterType.Boolean) {
+            this.numberOfValues = 1;
+            this.boolValue = true;
+        }
+        else {
+            if (providedValues.Length == 0) { //It may be empty. If it is, it's wrong this way, unless it's a Bool. THe don't have any payload.
+                this.flaws.Add(ParameterFlaw.ValuesMissing);
+            }
+        }
 
         if (newType == ParameterType.String) {
-            string[] tempStrings=new string[providedValues.Length];
+            string[] tempStrings = new string[providedValues.Length];
             Array.Copy(providedValues, tempStrings, providedValues.Length);
             this.stringValues = tempStrings;
             this.numberOfValues = (uint) providedValues.Length;
@@ -98,6 +143,7 @@ public class Parameter {
             this.intValues = intArray(providedValues);
             if (this.intValues == null) {
                 this.numberOfValues = 0;
+                this.flaws.Add(ParameterFlaw.ParseError);
             }
             else {
                 this.numberOfValues = (uint) providedValues.Length;
@@ -107,6 +153,7 @@ public class Parameter {
             this.doubleValues = doubleArray(providedValues);
             if (this.doubleValues == null) {
                 this.numberOfValues = 0;
+                this.flaws.Add(ParameterFlaw.ParseError);
             }
             else {
                 this.numberOfValues = (uint) providedValues.Length;
@@ -116,16 +163,22 @@ public class Parameter {
             this.uintValues = uIntArray(providedValues);
             if (this.uintValues == null) {
                 this.numberOfValues = 0;
+                this.flaws.Add(ParameterFlaw.ParseError);
             }
             else {
                 this.numberOfValues = (uint) providedValues.Length;
             }
         }
-        if (newType == ParameterType.Boolean) {
-            this.numberOfValues = 1;
-            this.boolValue = true;
+
+        if (newMinValues > 0 && newMinValues > this.numberOfValues) {
+            this.flaws.Add(ParameterFlaw.TooFewValues);
         }
-        if (this.numberOfValues == 0) this.isTainted = true;
+
+        if (newMaxValues > 0 && newMaxValues < this.numberOfValues) {
+            this.flaws.Add(ParameterFlaw.TooManyValues);
+        }
+
+        if (flaws.Count > 0) this.isTainted = true;
     }
 
     public string getName() {
@@ -187,7 +240,10 @@ public class Parameter {
         if (uintValues   != null &&   uintValues.Length > 0) result += " " + uintValues.Length + " uint(s)";
         if (intValues    != null &&    intValues.Length > 0) result += " " + intValues.Length + " int(s)";
         if (isTainted) {
-            result += "tainted";
+            result += " tainted:";
+            foreach(ParameterFlaw fault in flaws) {
+                result += " " + fault.ToString();
+            }
         }
         else {
             result += " OK";
@@ -213,6 +269,10 @@ public class Parameter {
 
     private uint[] getUintegerValuesUnsafe() {
         return uintValues;
+    }
+
+    public List<ParameterFlaw> getFlaws() {
+        return flaws;
     }
 
     private static string[] valueSplit (string value) {

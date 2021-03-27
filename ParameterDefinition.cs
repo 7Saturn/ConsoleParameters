@@ -1,14 +1,16 @@
 public class ParameterDefinition {
     string parameterName; //No extension here! No --, - or /! Same goes for Parameter class
     bool isRequired;
-    uint minValues; //This...
-    uint maxValues; //...and this are currently not used. But they ought to limit what the user can provide, at some point. This requires enhancing the Parameter Class with corresponding Checks
+    uint minValues;
+    uint maxValues;
+    bool noSplit; //If set, the comma-separated list is /not/ split. Imagine being provided a file name and the file actually does have a »,« in its name. Ot a double with thousand-separator »,«
     ParameterType type;
     public ParameterDefinition(string newParameterName,
                                ParameterType newType,
                                bool newIsRequired = false,
                                uint newMinValues = 0,
-                               uint newMaxValues = 999) {
+                               uint newMaxValues = 0,
+                               bool newSplit = false) {
         if (   newParameterName == null
             || newParameterName.Length < 1) {
             throw new ParameterDefinitionNameRequiredException("For a parameter definition a parameter name of at least one character length is required!");
@@ -17,11 +19,30 @@ public class ParameterDefinition {
             && newType == ParameterType.Boolean) {
             throw new ParameterDefinitionRequiredException("Parameters of type Boolean may never be required Parameters!"); // That's the trick... Their presence in the provided parameters marks them as true, their absence marks them as false.
         }
+
+        if (   newMinValues > 0
+            && newMaxValues > 0
+            && newMinValues > newMaxValues) {
+            throw new ParameterDefinitionLimitsFaultyException("There must be at least as high max values than min values set."); // If someone is really funny...
+        }
+
+        if (newSplit && newMinValues > 1) {
+            throw new ParameterDefinitionNoSplitMinNumberWrongException("When making a parameter not to be split, the max number of values is 1. Minvalues > 1 makes no sense, as it will never be untainted."); // If someone is really funny...
+        }
+
+        if (   newSplit
+            && (   newType == ParameterType.Integer
+                || newType == ParameterType.Uinteger
+                || newType == ParameterType.Boolean)) {
+            throw new ParameterDefinitionNoSplitWrongTypeException("When making a parameter not to be split, the types Integer, Uinteger and Boolean are not allowed."); // For doubles that might make sense, as 1,000,000.5 may be interpreted as one million and a half
+        }
+
         this.parameterName = newParameterName;
         this.type = newType;
         this.isRequired = newIsRequired;
         this.minValues = newMinValues;
         this.maxValues = newMaxValues;
+        this.noSplit = newSplit;
     }
 
     public string getParameterName() {
@@ -43,10 +64,13 @@ public class ParameterDefinition {
     public uint getMaxValues() {
         return maxValues;
     }
+
+    public bool getNoSplit() {
+        return noSplit;
+    }
 }
 
-public class ParameterDefinitionNameRequiredException : System.Exception
-{
+public class ParameterDefinitionNameRequiredException : System.Exception {
     public ParameterDefinitionNameRequiredException() : base() { }
     public ParameterDefinitionNameRequiredException(string message) : base(message) { }
     public ParameterDefinitionNameRequiredException(string message, System.Exception inner) : base(message, inner) { }
@@ -55,12 +79,38 @@ public class ParameterDefinitionNameRequiredException : System.Exception
                                                        System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
 }
 
-public class ParameterDefinitionRequiredException : System.Exception
-{
+public class ParameterDefinitionRequiredException : System.Exception {
     public ParameterDefinitionRequiredException() : base() { }
     public ParameterDefinitionRequiredException(string message) : base(message) { }
     public ParameterDefinitionRequiredException(string message, System.Exception inner) : base(message, inner) { }
 
     protected ParameterDefinitionRequiredException(System.Runtime.Serialization.SerializationInfo info,
                                                    System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
+}
+
+public class ParameterDefinitionLimitsFaultyException : System.Exception {
+    public ParameterDefinitionLimitsFaultyException() : base() { }
+    public ParameterDefinitionLimitsFaultyException(string message) : base(message) { }
+    public ParameterDefinitionLimitsFaultyException(string message, System.Exception inner) : base(message, inner) { }
+
+    protected ParameterDefinitionLimitsFaultyException(System.Runtime.Serialization.SerializationInfo info,
+                                                       System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
+}
+
+public class ParameterDefinitionNoSplitMinNumberWrongException : System.Exception {
+    public ParameterDefinitionNoSplitMinNumberWrongException() : base() { }
+    public ParameterDefinitionNoSplitMinNumberWrongException(string message) : base(message) { }
+    public ParameterDefinitionNoSplitMinNumberWrongException(string message, System.Exception inner) : base(message, inner) { }
+
+    protected ParameterDefinitionNoSplitMinNumberWrongException(System.Runtime.Serialization.SerializationInfo info,
+                                                                System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
+}
+
+public class ParameterDefinitionNoSplitWrongTypeException : System.Exception {
+    public ParameterDefinitionNoSplitWrongTypeException() : base() { }
+    public ParameterDefinitionNoSplitWrongTypeException(string message) : base(message) { }
+    public ParameterDefinitionNoSplitWrongTypeException(string message, System.Exception inner) : base(message, inner) { }
+
+    protected ParameterDefinitionNoSplitWrongTypeException(System.Runtime.Serialization.SerializationInfo info,
+                                                              System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
 }

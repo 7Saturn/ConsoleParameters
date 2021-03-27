@@ -144,6 +144,7 @@ public static class ConsoleParameters {
 
         if (doubledParameterNames.Count > 0) ConsoleParameters.isTainted = true; //If so, that's bad, too!
 
+        //Which parameters provided by the user were never defined?
         foreach (string parameterName in allProvidedParameterNames) {
             if (!allowedParameterNames.Contains(parameterName)) { // That one is not part of the definition!
                 unknownParameterNames.Add(parameterName);
@@ -164,7 +165,7 @@ public static class ConsoleParameters {
             if (allowedProvidedParameterNames.Contains(parameterName)) { // A Bool defined in the Definitions and given by the user
                 newBool = new Parameter(boolParameterDefinition.getParameterName(), true); //Present, so flag will be set.
             }
-            else {// A Bool defined in the Defintions, but not give by the user
+            else {// A Bool defined in the Defintions, but not given by the user
                 newBool = new Parameter(boolParameterDefinition.getParameterName(), false); //Not present, so flag unset.
             }
             listOfParameters.Add(newBool);
@@ -190,7 +191,6 @@ public static class ConsoleParameters {
                 else { // Last one is a parameter name, so no values.
                     ParameterDefinition defectOne = getParameterDefinitionByNameInternal(withoutPrefix(resArgs[0]));
                     listOfParameters.Add(new Parameter (defectOne, true));
-                    ConsoleParameters.isTainted = true;
                     missingValueParameterNames.Add(defectOne.getParameterName());
                 }
                 resArgs.RemoveAt(0);
@@ -213,7 +213,6 @@ public static class ConsoleParameters {
                         ParameterDefinition defectOne = getParameterDefinitionByNameInternal(withoutPrefix(resArgs[0]));
                         listOfParameters.Add(new Parameter (defectOne, true));
                         resArgs.RemoveAt(0);
-                        ConsoleParameters.isTainted = true;
                         missingValueParameterNames.Add(defectOne.getParameterName());
                     }
 
@@ -301,6 +300,11 @@ public static class ConsoleParameters {
     public static List<string> getAllowedProvidedParameterNames() {
         ensureInitializationDone();
         return ConsoleParameters.allowedProvidedParameterNames;
+    }
+
+    public static List<string> getAllParameterNames() {
+        ensureInitializationDone();
+        return ConsoleParameters.allowedParameterNames;
     }
 
     public static List<string> getMissingValueParameterNames() {

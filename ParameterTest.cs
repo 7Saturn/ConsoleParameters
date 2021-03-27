@@ -10,7 +10,9 @@ public static class ParameterTest {
                                                                            false),
                                                    new ParameterDefinition("bier",
                                                                            ParameterType.String,
-                                                                           true),
+                                                                           true,
+                                                                           2,  // So viele Biersorten sollte man schon kennen
+                                                                           4), // aber wir wollen es mal nicht übertreiben
                                                    new ParameterDefinition("posganzzahlen",
                                                                            ParameterType.Uinteger,
                                                                            true),
@@ -20,6 +22,12 @@ public static class ParameterTest {
                                                    new ParameterDefinition("zahlen",
                                                                            ParameterType.Double,
                                                                            false),
+                                                   new ParameterDefinition("zahl",
+                                                                           ParameterType.Double,
+                                                                           false,
+                                                                           0,
+                                                                           0,
+                                                                           true), //Let's not split that one
                                                    new ParameterDefinition("mussdasein",
                                                                            ParameterType.Double,
                                                                            true),
@@ -28,9 +36,12 @@ public static class ParameterTest {
                                                                            false),
                                                },
                                                args);
+        List<string> parameterNames = ConsoleParameters.getAllParameterNames();
+        Console.WriteLine("The following parameter names are potentially used: " + commaConcatStringList(parameterNames));
         Console.WriteLine(ConsoleParameters.getStartCommand());
-        Console.WriteLine("The following console values were provided: " + commaConcatStringList(args));
+        Console.WriteLine("The following console arguments were provided: " + commaConcatStringList(args));
         if (ConsoleParameters.getIsTainted()) {
+            Console.WriteLine("---something went wrong:");
             List<string> missingParameters = ConsoleParameters.getMissingButRequiredParameterNames();
             if (missingParameters.Count > 0) {
                 string missingParameterNames = commaConcatStringList(missingParameters);
@@ -46,11 +57,12 @@ public static class ParameterTest {
                 string unknownParametersNames = commaConcatStringList(unknownParameters);
                 Console.WriteLine("The following unknown parameters were provided: " + unknownParametersNames);
             }
-            if (ConsoleParameters.getParameters().Count > 0) {
-                foreach (Parameter p in ConsoleParameters.getParameters()) {
-                    if (p.getIsTainted()) {
-                        Console.WriteLine("Parameter " + p.getName() + " hat ein Problem!");
-                        if (p.getNumberOfValues() == 0) Console.WriteLine("Parameter " + p.getName() + " hat keinen Wert!");
+
+            foreach (Parameter p in ConsoleParameters.getParameters()) {
+                if (p.getIsTainted()) {
+                    Console.WriteLine("Parameter " + p.getName() + " hat folgende Probleme:");
+                    foreach(ParameterFlaw prob in p.getFlaws()) {
+                        Console.WriteLine(prob.ToString());
                     }
                 }
             }
@@ -60,6 +72,7 @@ public static class ParameterTest {
                     Console.WriteLine(pName);
                 }
             }
+            Console.WriteLine("---");
         }
         else {
             Parameter booltest = ConsoleParameters.getParameterByName("booltest");
@@ -106,6 +119,14 @@ public static class ParameterTest {
                 foreach (string rest in ConsoleParameters.getResidualArgs()) {
                     Console.WriteLine(rest);
                 }
+            }
+            Parameter zahl = ConsoleParameters.getParameterByName("zahl");
+            if (zahl.getNumberOfValues() == 0) {
+                Console.WriteLine("Parameter zahl wurde nicht angegeben!");
+            }
+            double[] zahlWerte = zahl.getDoubleValues();
+            foreach (double wert in zahlWerte) {
+                Console.WriteLine("zahlen hat: " + wert);
             }
         }
         Console.WriteLine("\n" + ConsoleParameters.getParameters().Count + " parameters were derived from the definition.");
