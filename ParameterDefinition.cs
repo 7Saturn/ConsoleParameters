@@ -3,7 +3,7 @@ public class ParameterDefinition {
     bool isRequired;
     uint minValues;
     uint maxValues;
-    bool noSplit; //If set, the comma-separated list is /not/ split. Imagine being provided a file name and the file actually does have a »,« in its name. Ot a double with thousand-separator »,«
+    bool noSplit; //If set, the comma-separated list is /not/ split. Imagine being provided a file name for opening and it actually /does/ contain a »,«. Or a double with thousand-separator »,«
     ParameterType type;
     public ParameterDefinition(string newParameterName,
                                ParameterType newType,
@@ -17,22 +17,23 @@ public class ParameterDefinition {
         }
         if (   newIsRequired
             && newType == ParameterType.Boolean) {
-            throw new ParameterDefinitionRequiredException("Parameters of type Boolean may never be required Parameters!"); // That's the trick... Their presence in the provided parameters marks them as true, their absence marks them as false.
+            throw new ParameterDefinitionRequiredException(newParameterName + ": Parameters of type Boolean may never be required Parameters!"); // That's the trick... Their presence in the provided parameters marks them as true, their absence marks them as false.
         }
 
         if (   newMinValues > 0
             && newMaxValues > 0
             && newMinValues > newMaxValues) {
-            throw new ParameterDefinitionLimitsFaultyException("There must be at least as high max values than min values set."); // If someone is really funny...
+            throw new ParameterDefinitionLimitsFaultyException(newParameterName + ": Max values must be at least as high as min values."); // If someone is really funny...
         }
 
-        if (newSplit && newMinValues > 1) {
-            throw new ParameterDefinitionNoSplitMinNumberWrongException("When making a parameter not to be split, the max number of values is 1. Minvalues > 1 makes no sense, as it will never be untainted."); // If someone is really funny...
+        if (   newSplit
+            && newMinValues > 1) {
+            throw new ParameterDefinitionNoSplitMinNumberWrongException("ParameterDefinition for " + newParameterName + ": When making a parameter not to be split, the max number of values is 1. Minvalues > 1 makes no sense, as it will never result in untainted parameters."); // Not immediately obvious.
         }
 
         if (   newSplit
             && newType == ParameterType.Boolean) {
-            throw new ParameterDefinitionNoSplitException("When making a parameter not to be split, the type Boolean is not allowed."); // For Numbers that might make sense, as 1,000,000.5 may be interpreted as one million and a half. But what is there to be split for Bools?
+            throw new ParameterDefinitionNoSplitException("ParameterDefinition for " + newParameterName + ": When making a parameter not to be split, the type Boolean is not allowed."); // For Numbers that might make sense, as 1,000,000.5 may be interpreted as one million and a half. But what is there to be split for Bools?
         }
 
         this.parameterName = newParameterName;

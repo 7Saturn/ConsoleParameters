@@ -12,7 +12,6 @@ public enum ParameterType {
 }
 
 public enum ParameterFlaw {
-    // COMPLETE:
     ParseError,
     ValuesMissing,
     TooManyValues,
@@ -43,25 +42,6 @@ public class Parameter {
         this.type = ParameterType.Boolean;
         this.numberOfValues = 1;
         this.boolValue = newValue; //Funny thing is, Bools can never be tainted. Either they are present, or not. =)
-    }
-
-    public Parameter(ParameterDefinition pDef,
-                     string[] values) {
-        Parameter newOne = new Parameter (pDef.getParameterName(),
-                                          pDef.getType(),
-                                          values,
-                                          pDef.getMinValues(),
-                                          pDef.getMaxValues());
-        this.parameterName = pDef.getParameterName();
-        this.type = pDef.getType();
-        this.numberOfValues = newOne.getNumberOfValues();
-        this.boolValue = newOne.getBoolValueUnsafe();
-        this.stringValues = newOne.getStringValuesUnsafe();
-        this.uintValues = newOne.getUintegerValuesUnsafe();
-        this.intValues = newOne.getIntegerValuesUnsafe();
-        this.doubleValues = newOne.getDoubleValuesUnsafe();
-        this.flaws = newOne.getFlaws();
-        this.isTainted = newOne.getIsTainted();
     }
 
     public Parameter(ParameterDefinition pDef,
@@ -112,7 +92,6 @@ public class Parameter {
                      string[] providedValues,
                      uint newMinValues = 0,
                      uint newMaxValues = 0) {
-        // COMPLETE: Value-Rule must be checked
         if (   newParameterName == null
             || newParameterName.Length < 1) {
             throw new ParameterNameRequiredException("For a parameter definition a parameter name of at least one character length is required!");
@@ -128,7 +107,7 @@ public class Parameter {
             this.boolValue = true;
         }
         else {
-            if (providedValues.Length == 0) { //It may be empty. If it is, it's wrong this way, unless it's a Bool. THe don't have any payload.
+            if (providedValues.Length == 0) { // It may be empty. If it is, it's wrong this way, unless it's a Bool. They don't have any payload.
                 this.flaws.Add(ParameterFlaw.ValuesMissing);
             }
         }
@@ -199,7 +178,7 @@ public class Parameter {
 
     public bool getBoolValue() {
         if (type != ParameterType.Boolean) {
-            throw new ParameterTypeWrongForGetting("Boolean parameter value requested but parameter is not of type Boolean.");
+            throw new ParameterTypeWrongForGetting("Boolean parameter value requested but parameter " + parameterName + " is not of type Boolean.");
         }
         return boolValue;
     }
@@ -210,7 +189,7 @@ public class Parameter {
 
     public string[] getStringValues() {
         if (type != ParameterType.String) {
-            throw new ParameterTypeWrongForGetting("String parameter values requested but parameter is not of type String.");
+            throw new ParameterTypeWrongForGetting("String parameter values requested but parameter " + parameterName + " is not of type String.");
         }
         return stringValues;
     }
@@ -221,7 +200,7 @@ public class Parameter {
 
     public double[] getDoubleValues() {
         if (type != ParameterType.Double) {
-            throw new ParameterTypeWrongForGetting("Double parameter values requested but parameter is not of type Double.");
+            throw new ParameterTypeWrongForGetting("Double parameter values requested but parameter " + parameterName + " is not of type Double.");
         }
         return doubleValues;
     }
@@ -252,7 +231,7 @@ public class Parameter {
     }
 
     public int[] getIntegerValues() {
-        if (type != ParameterType.Integer) throw new ParameterTypeWrongForGetting("Integer parameter values requested but parameter is not of type Integer.");
+        if (type != ParameterType.Integer) throw new ParameterTypeWrongForGetting("Integer parameter values requested but parameter " + parameterName + " is not of type Integer.");
         return intValues;
     }
 
@@ -262,7 +241,7 @@ public class Parameter {
 
     public uint[] getUintegerValues() {
         if (type != ParameterType.Uinteger) {
-            throw new ParameterTypeWrongForGetting("Uint parameter values requested but parameter is not of type Uinteger.");
+            throw new ParameterTypeWrongForGetting("Uint parameter values requested but parameter " + parameterName + " is not of type Uinteger.");
         }
         return uintValues;
     }
@@ -288,7 +267,14 @@ public class Parameter {
         uint[] uIntValues = new uint[strings.Length];
         for (uint counter = 0; counter < strings.Length; counter++) {
             uint tempValue;
-            bool success = UInt32.TryParse(strings[counter], out tempValue);
+            /* "en-US" is required, as for example in Germany, -3.3 would become -33 instead of the value.
+               As we use "," as separators for multiple values, it is not available for number entering.
+               Aside from that, people are rather used to use . as decimal point.
+               Also know: 1,000 and 1e3 are not allowed both with Number and Float.
+               Only one at a time can be used, so both may be helpful.
+            */
+            bool success = UInt32.TryParse(strings[counter], NumberStyles.Number, CultureInfo.CreateSpecificCulture ("en-US"), out tempValue);
+            if (!success) success = UInt32.TryParse(strings[counter], NumberStyles.Float, CultureInfo.CreateSpecificCulture ("en-US"), out tempValue); //Sounds strange, but 1e2 is OK, too. 1.001e2 would not be, so we can do this to allow exponential values!
             if (!success) return null;
             uIntValues[counter] = tempValue;
         }
@@ -299,10 +285,9 @@ public class Parameter {
         int[] intValues = new int[strings.Length];
         for (uint counter = 0; counter < strings.Length; counter++) {
             int tempValue;
-            bool success = Int32.TryParse(strings[counter], out tempValue);
-            if (!success) {
-                return null;
-            }
+            bool success = Int32.TryParse(strings[counter], NumberStyles.Number, CultureInfo.CreateSpecificCulture ("en-US"), out tempValue);
+            if (!success) success = Int32.TryParse(strings[counter], NumberStyles.Float, CultureInfo.CreateSpecificCulture ("en-US"), out tempValue);
+            if (!success) return null;
             intValues[counter] = tempValue;
         }
         return intValues;
@@ -312,13 +297,9 @@ public class Parameter {
         double[] doubleValues = new double[strings.Length];
         for (uint counter = 0; counter < strings.Length; counter++) {
             double tempValue;
-            /* "en-US" is required, as for example in Germany, -3.3 would become -33 instead of the value.
-               As we use "," as separators for multiple values, it is not available for number entering.
-               Aside from that, people are rather used to use . as decimal point. */
-            bool success = double.TryParse(strings[counter], NumberStyles.Number, CultureInfo.CreateSpecificCulture ("en-US"), out tempValue);
-            if (!success) {
-                return null;
-            }
+            bool success = double.TryParse(strings[counter], NumberStyles.Float, CultureInfo.CreateSpecificCulture ("en-US"), out tempValue);
+            if (!success) success = double.TryParse(strings[counter], NumberStyles.Number, CultureInfo.CreateSpecificCulture ("en-US"), out tempValue);
+            if (!success) return null;
             doubleValues[counter] = tempValue;
         }
         return doubleValues;

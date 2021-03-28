@@ -5,10 +5,9 @@ using System.Runtime.CompilerServices; //Caller-Info
 
 /* Ideas for expansion:
 
- * Automatic Help-Text generation: ParameterDefinition gets a description text and a summary text is provided, too. This way a generic Help-String can be generated, including how to run the command with optional and required parameters, description of parameter's effect and a overall description, what the program does or requires. Can even be automatically invoked, if the Parameters were tainted, somehow.
- * Parameters with some requirements for the number of values (e. g. 2-4 values are required, no more, no less)
- * Special requirements for the provided values might as well be checked by a CallBack/Delegate, that does checks on them.
- * A more explicit check of what might be wrong with a parameter, would be nice: List of enum values that show, what went on, e. g., number of values wrong, values missing, parsing error, parameter missing, parameter was provided more than once.
+ * Automatic Help-Text generation: ParameterDefinition gets a description text and a summary text is provided, too. This way a generic Help-String can be generated, including how to run the command with optional and required parameters, description of parameter's effect and an overall description, what the program does or requires. Can even be automatically invoked when the Parameters were somehow tainted.
+ * Special requirements for the provided values might as well be checked by a CallBack/Delegate, that does checks on them. See ParameterFlaw definition in Parameter.cs
+ * A more explicit information, what went wrong with the provided arguments from the user during initialisation (doubled parameters provided, missing parameters, unknown parameter names). Right now tainted only means something went wrong. Checking all the before mentioned and all parameters for faults is a bit tiresome.
 
 */
 
@@ -174,7 +173,7 @@ public static class ConsoleParameters {
         //Remove unknown and bool Parameters, which leaves only »real« Parameters and their values.
         List<string> resArgs = new List<string>();
 
-        //Let's remove Bools, as they were already completed and unknown parameters, as we cannot do anything with them anyways. The rest we work with.
+        //Let's remove Bools, as they were already completed. And also unknown parameters, as we cannot do anything with them anyways. The rest we work with.
         foreach (string arg in args) {
             if (!(   allowedBoolParameterNames.Contains(arg)
                   || unknownParameterNames.Contains(arg))){
@@ -317,7 +316,7 @@ public static class ConsoleParameters {
         foreach (Parameter currentParameter in listOfParameters) {
             if (currentParameter.getName().Equals(parameterName)) return currentParameter;
         }
-        return null;
+        throw new ParameterNotFoundException("Parameter " + parameterName + " could not be found.");
     }
 
     public static ParameterDefinition getParameterDefinitionByName(string parameterName) {
@@ -357,7 +356,7 @@ public static class ConsoleParameters {
             }
         }
         else {
-            throw new ParameterNotFoundException("Parameter " + parameterName + "could not be found.");
+            throw new ParameterNotFoundException("Parameter " + parameterName + " could not be found.");
         }
     }
 
