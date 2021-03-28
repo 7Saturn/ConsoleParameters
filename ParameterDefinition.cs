@@ -31,10 +31,8 @@ public class ParameterDefinition {
         }
 
         if (   newSplit
-            && (   newType == ParameterType.Integer
-                || newType == ParameterType.Uinteger
-                || newType == ParameterType.Boolean)) {
-            throw new ParameterDefinitionNoSplitWrongTypeException("When making a parameter not to be split, the types Integer, Uinteger and Boolean are not allowed."); // For doubles that might make sense, as 1,000,000.5 may be interpreted as one million and a half
+            && newType == ParameterType.Boolean) {
+            throw new ParameterDefinitionNoSplitException("When making a parameter not to be split, the type Boolean is not allowed."); // For Numbers that might make sense, as 1,000,000.5 may be interpreted as one million and a half. But what is there to be split for Bools?
         }
 
         this.parameterName = newParameterName;
@@ -106,11 +104,11 @@ public class ParameterDefinitionNoSplitMinNumberWrongException : System.Exceptio
                                                                 System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
 }
 
-public class ParameterDefinitionNoSplitWrongTypeException : System.Exception {
-    public ParameterDefinitionNoSplitWrongTypeException() : base() { }
-    public ParameterDefinitionNoSplitWrongTypeException(string message) : base(message) { }
-    public ParameterDefinitionNoSplitWrongTypeException(string message, System.Exception inner) : base(message, inner) { }
+public class ParameterDefinitionNoSplitException : System.Exception {
+    public ParameterDefinitionNoSplitException() : base() { }
+    public ParameterDefinitionNoSplitException(string message) : base(message) { }
+    public ParameterDefinitionNoSplitException(string message, System.Exception inner) : base(message, inner) { }
 
-    protected ParameterDefinitionNoSplitWrongTypeException(System.Runtime.Serialization.SerializationInfo info,
-                                                              System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
+    protected ParameterDefinitionNoSplitException(System.Runtime.Serialization.SerializationInfo info,
+                                                  System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
 }

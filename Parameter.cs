@@ -343,15 +343,6 @@ public class ParameterNameRequiredException : System.Exception {
                                              System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
 }
 
-public class ParameterTypeIntegerRequiredException : System.Exception {
-    public ParameterTypeIntegerRequiredException() : base() { }
-    public ParameterTypeIntegerRequiredException(string message) : base(message) { }
-    public ParameterTypeIntegerRequiredException(string message, System.Exception inner) : base(message, inner) { }
-
-    protected ParameterTypeIntegerRequiredException(System.Runtime.Serialization.SerializationInfo info,
-                                                    System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
-}
-
 public class ParameterTypeWrongForGetting : System.Exception {
     public ParameterTypeWrongForGetting() : base() { }
     public ParameterTypeWrongForGetting(string message) : base(message) { }

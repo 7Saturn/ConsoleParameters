@@ -58,7 +58,7 @@ public static class ConsoleParameters {
         // Do the definitions check out?
         if (   newParameterDefinitions == null
             || newParameterDefinitions.Length < 1) {
-            throw new ParameterPrefixFaultyException("Parameter initialisation failed. The parameter definition array must provide at least one parameter definition. If you only want the provided words from the console, don't use this class, take args directly.");
+            throw new ParameterDefinitionMissingException("Parameter initialisation failed. The parameter definition array must provide at least one parameter definition. If you only want the provided words from the console, don't use this class, take args directly.");
         }
 
         foreach (ParameterDefinition pDef in newParameterDefinitions) {
@@ -385,7 +385,7 @@ public static class ConsoleParameters {
                                    ConsoleParameters.parameterPrefix.Length).Equals(ConsoleParameters.parameterPrefix));
     }
 
-    public static void dumpListOfParameters () {
+    public static void dumpListOfParameters() {
         foreach (Parameter p in listOfParameters) {
             Console.WriteLine(p.ToString());
         }
