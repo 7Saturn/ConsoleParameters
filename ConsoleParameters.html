@@ -1,0 +1,199 @@
+<html>
+  <head>
+    <title>ConsoleParameters &ndash; Library for handling user provided parameters from the CLI</title>
+    <meta name="AUTHOR" content="Martin Wohlauer">
+	<meta name="DESCRIPTION" content="Documentation of the ConsoleParameters library">
+	<meta name="KEYWORDS" content="C# Console Parameters Parser">
+	<meta http-equiv="CONTENT-TYPE" content="text/HTML; charset=utf8">
+	<meta name="language" content="en">
+	<style>
+	  code
+	  {
+		  background: #E7E7E7;
+	  }
+      body
+      {
+          max-width: 800;
+      }
+      td
+      {
+          vertical-align: top;
+          padding-right: 5px;
+      }
+      code
+      {
+          font-size: 15;
+      }
+      td.c
+      {
+          text-align: center;
+      }
+	</style>
+  </head>
+  <body>
+    <h1>ConsoleParameters</h1>
+    <p>This mini library targets formalizing the handling for user provided parameters, entered via the CLI or by a calling program in a C# application. It takes care of:</p>
+    <ul>
+      <li>type-safe value handling (no more stupid crashes because the user entered a text instead of an unsigned number),</li>
+      <li>management of required and optional parameters,</li>
+      <li>reading single and multiple value parameters (sometimes you really need a comma separated list of values, sometimes you want it exactly as a single value provided by the user),</li>
+      <li>gathering also the residual values, not part of any parameters (afterall, there are people out there, that don't want to use parameter names with a <code>--</code> prependet to it but the first value to be interpreted in a certain fashion) and</li>
+      <li>three different parameter name prefixes (<code>--</code>, <code>-</code> and <code>/</code>).
+    </ul>
+    <p>Why such an endeavor? I was creating a new project in C#, specifically aiming at a console application. I've done this a few times and every time I had to manage the parameter handling myself. And it bugged me, to <i>again</i> having to reinvent the wheel. For Perl there is the <a href="https://perldoc.perl.org/Getopt::Long">Getopt::Long</a> package. I was looking for something similar for C#. When googling for such a library, nothing came up. Instead of redoing it in various fashions over and over, I decided: &raquo;Let's do this properly once in order to not having to redo it over and over any longer.&laquo;</p>
+    <h2 id="contept">Concept</h2>
+    <p>The concept is simple:</p>
+    <ol>
+      <li>Create a definitions of parameters that should be scanned for. They define what properties a parameter should have (its name, is it required or optional, which data type does it expect, how many values may this parameter provide at once, ...).</li>
+      <li>Initialize the static <code>ConsoleParameters</code> class with a list of those parameter definitions.</li>
+      <li>Once done, you can check for the results of this scan. Did something wrong?</li>
+      <li>The <code>ConsoleParameters</code> class also does sanity checks on your parameter definitions at run time. So mistakes like making a parameter require at least two values to be provided but treating input data as exactly one value will be reported right when trying to initialize with the parameter definitions given by the programmer.</li>
+      <li>Sanity checks on data provided by the user will be done automatically as the next step, during parsing. But no errors are automatically reported, not Exceptions for faulty data provided by the user or problems of that nature. You are in control of how such events should be treated.</li>
+      <li>The results can be queried in a standardized fashion as well. No more manual checking, if the data is actually a list of unsigned integers or a bulk text. The <code>Parameter</code> class will hold that information right after initialisation and data analysis.</li>
+      <li>If something went wrong with a particular parameter, you can check what went wrong with it in a standardized fashion and if neccessary, react to it on your own terms.</li>
+      <li>This also means, you can go on anyways, if there were problems.</li>
+      <li>If everything checks out, then you can simply get the data provided by the user in a standardized way.</li>
+    </ol>
+    <h2 id="details">Details</h2>
+    <h3 id="consoleparameters">Static Class ConsoleParameters</h3>
+    <p>This is the primary class, where &raquo;the magic&laquo; of the parsing actually happens. It's primary method is the <code>InitializeParameters</code> method:</p>
+    <p id="initializeparametersmethod"><code>InitializeParameters(string ParameterPrefix, ParameterDefinition[] ParameterDefinitions, string[] args)</code></p>
+    <p>The provided values (all are mandatory) consist of:</p>
+    <table>
+      <tr><th>Value</th><th>Content</th></tr>
+      <tr><td><code>ParameterPrefix</code></td><td>This string value defines the <a href="#prefixes">prefix</a> to be used for parsing.</td></tr>
+      <tr><td><code>ParameterDefinitions</code></td><td>A ParameterDefinition[] array, containing all the <a href="#parameterdefinitions">parameter definitions</a> that will be available during parsing.</td></tr>
+      <tr><td><code>args</code></td><td>The string[] array required is usually just the arguments array provided to the <code>Main()</code> method/function. You may use another array (e. g. console parameters already worked on by yourself) but it is recommended to handle it entirely with ConsoleParameters when you use it anyways and maybe work on the residual values afterwards.</td></tr>
+    </table>
+    <p>The initialisation process can only be run once. As the console arguments are available right from the start in the <code>Main()</code> function and usually you want to have the parameters taken care of right from the start, it is recommended to make the <code>ConsoleParameters.InitializeParameters()</code> call one of the first ones in your program.</p>
+    <p>During parsing of arguments provided by the user no exceptions should be thrown. The ConsoleParameters aim to exactly not crash the application due to faulty entered console arguments. But during checking out the parameter definitions provided by the programmer this is the exact opposite: If there is something fishy going on, the coder should know right away. (That's another reason to initialize the parameters right from the start.) So here are the exceptions that might occur during initialisation:</p>
+    <table>
+      <tr><th>Exception</th><th>Problem</th></tr>
+      <tr><td><code>ParameterPrefixFaultyException</code></td><td>A <a href="#prefixes">prefix</a> was used, that is not allowed.</td></tr>
+      <tr><td><code>ParameterDefinitionMissingException</code></td><td>The programmer provided a null value or a ParameterDefininition[] array with zero entries. An array with least one element must be provided.</td></tr>
+      <tr><td><code>ParameterUninitializedException</code></td><td>The programmer tried to use a method of ConsoleParameters before having it initialized. Most functions will only work after initialisation took place.</td></tr>
+      <tr><td><code>ParameterArgsMissingException</code></td><td>The string[] array provided as arguments to parse is null. At least an empty array is required. It may be empty as the user did not provide any values. This is taken care of. But it may not be null.</td></tr>
+      <tr><td><code>ParameterNameDoubledException</code></td><td>The programmer provided at least two parameter definitions with the very same parameter name set (or even worse, twice the same parameter definition). Probably a typo or accidently trying to use the same name twice.</td></tr>
+      <tr><td><code>ParameterNotFoundException</code></td><td>The programmer tried to access a parameter with a certain name, that was never part of the definition. Probably just a typo.</td></tr>
+      <tr><td><code>ParameterDefinitionNullException</code></td><td>A parameter definition provided with the ParameterDefinition[] array has value null. Recheck your definitions array.</td></tr>
+      <tr><td><code>ParameterAlreadyInitializedException</code></td><td>The programmer tried to initalize the ConsoleParameters twice. This may only be done excatly once.</td></tr>
+    </table>
+    <p>These exceptions are <i>not</i> meant to be try-catch-ed but to be fixed conceptionally. None of them have anything to do with the provided arguments from the console, but are solely the programmers fault (at worst, the fault of the author if this library). So if you find any of those exceptions occurring, recheck what you are doing in the code. It most likely means you did something not so clever or did it at the wrong time or do not entirely understand what you just did. Better find the root cause in your concept instead of messing around with try-catch-blocks. If there is such a problem you most definitely can solve it without turning to that!</p>
+    <p>ConsoleParameters provides the following static methods:</p>
+    <table>
+      <tr><th>Method</th><th>Use</th></tr>
+      <tr><td><code>InitializeParameters()</code></td><td>This method is described in more detail <a href="#initializeparametersmethod">above</a>.</td></tr>
+      <tr><td><code>GetApplicationFileName()</code></td><td>Returns the name of the C# binary as a string. This can come in handy when trying to write a help page that actually considers how the application is supposed to be run, including its proper name.</td></tr>
+      <tr><td><code>getStartCommand()</code></td><td>Similar to <code>GetApplicationFileName()</code> but includes the calling binary. On Linux, MacOS and BSD systems the Mono runtime environment is explicitly used to run C# binaries. So the <code>mono&nbsp;</code> is prepended for the calling command, whereas this is not done on Windows, as there the <code>.exe</code> is run directly by its name.</td></tr>
+      <tr><td><code>getMissingParameterNames()</code></td><td>Contains a List&lt;string&gt; of parameter names, that where provided in the definitions but were not provided by the user. They include the prefix.</td></tr>
+      <tr><td><code>getMissingButRequiredParameterNames()</code></td><td>Similar to <code>getMissingParameterNames()</code> but only shows the parameter names of parameters that were declared mandatory in the definitions.</td></tr>
+      <tr><td><code>getIsTainted()</code></td><td>Returns the bool indicating whether during initalisation some problem occured.</td></tr>
+      <tr><td><code>wasInitialized()</code></td><td>Returns the bool indicating whether the initialisation already took place.</td></tr>
+      <tr><td><code>getParameterPrefix()</code></td><td>Returns the string with the prefix set during initialisation.</td></tr>
+      <tr><td><code>getParameters()</code></td><td>Returns a List&lt;Parameter&gt; containing all parameters derived from the parameter definition and provided console arguments.</td></tr>
+      <tr><td><code>getDoubledParameterNames()</code></td><td>Returns a List&lt;string&gt; containing all parameter names being present in the console arguments at least twice.</td></tr>
+      <tr><td><code>getUnknownParameterNames()</code></td><td>Returns a List&lt;string&gt; containing all parameter names being present in the console arguments that were not part of the parameter definitions.</td></tr>
+      <tr><td><code>getAllProvidedParameterNames()</code></td><td>Returns a List&lt;string&gt; containing the names of parameters that were provided by the user via console arguments. This includes <i>all</i> of the arguments that look like a parameter name (having the set <a href="#prefixes">prefix</a> prepended).</td></tr>
+      <tr><td><code>getAllowedProvidedParameterNames()</code></td><td>Returns a List&lt;string&gt; containing all names of parameters provided by the user and also part of the parameter definitions.</td></tr>
+      <tr><td><code>getAllParameterNames()</code></td><td>Returns a List&lt;string&gt; containing the names of parameters allowed as defined by the parameter definitions.</td></tr>
+      <tr><td><code>getMissingValueParameterNames()</code></td><td>Returns a List&lt;string&gt; containing all the parameter names of parameters for which no values could be derived.</td></tr>
+      <tr><td><code>getParameterByName(string ParameterName)</code></td><td>Returns the Parameter object with the provided ParameterName. If there is no such parameter (means, was never part of the definition), a corresponding exception is thrown.</td></tr>
+      <tr><td><code>getParameterDefinitionByName(string ParameterName)</code></td><td>Similar to <code>getParameterByName()</code> but returning the parameter definition to that parameter name.</td></tr>
+      <tr><td><code>getResidualArgs()</code></td><td>returns a List&lt;string&gt; with all arguments that were not part of any parameter. Some parameter concepts work with unnamed parameters, identified solely by their position in the arguments array. This method allows arbitrary positions of parameter-value pairs (or bool parameters) while leaving the <i>relative</i> order of additionally provided arguments intact. If you really <i>must</i> work with static parameter positions (e. g. used by <code>7za</code>, where the first value <i>must</i> define the action to be taken, such as <code>7za a [...]</code>) better work on the provided args first and check them yourself, giving the rest to the ConsoleParameters afterwards. Usually it is easier to either use names parameters or work with relativ value positions.</td></tr>
+      <tr><td><code>parameterIsSet(string ParameterName)</code></td><td>Returns a bool, indicating that there is at least one value stored in this parameter. Boolean parameters work a bit differently from this: For booleans it returns their set value (=were present on the console).</td></tr>
+      <tr><td><code>dumpListOfParameters()</code></td><td>Prints the <code>ToString()</code> values of all parameters. This function may be good for debugging purposes.</td></tr>
+    </table>
+    <h3 id="prefixes">Prefixes</h3>
+    <p>Any parameter must have a parameter name. However in order to distinguish a parameter name from values (e. g. its payload), it requires some sort of marker. Very commonly those markers are prefixes. The allowed prefixes for ConsoleParameters are <code>--</code>, <code>-</code> and <code>/</code>. Prefixes are not part of a single parameter definition but apply for all parameters as the identifying marker.</p>
+    <p>So a boolean parameter (=flag) named <code>verbose</code> with prefix <code>--</code> would be expected to be written as <code>--verbose</code> by the user in order to be recognized. A String parameter with a name <code>filename</code> and the prefix <code>-</code> would be provided like this: <code>-filename /home/username/myFile.dat</code>. And the classic <code>/?</code> help switch on Windows and DOS machines would require a parameter with name <code>?</code> and the prefix be set as <code>/</code>.
+    <h3 id="parametertypes">Parameter Types</h3>
+    <p>The library aims at being able to query any kind of information that can be considered either plain text, some sort of decimal system number or a flag. This requires the definition of what kind of data a parameter expects. The enum type <code>ParameterType</code> is used to specify and identify this information. It may hold the following information:</p>
+    <table>
+      <tr><th>ParameterType</th><th>Description</th><th>May be Required</th><th>May be not splitting</th></tr>
+      <tr><td><code>String</code></td><td>The least demanding type. All information is provided as-is, no interpretation.</td><td class="c">x</td><td class="c">x</td></tr>
+      <tr><td><code>Boolean</code></td><td>This type is meant as a flag. This means, its mere presence or absence actually is the information. If present, the value will be <code>true</code>, if not present the value will be <code>false</code>. This also means, there cannot be any data provided along with it. This parameter will always hold one boolean value.</td><td class="c">-</td><td class="c">-</td></tr>
+      <tr><td><code>Uinteger</code></td><td>A parameter that might contain multiple unsigned integer values. It only one value provided is not a natural number or zero, then the parameter will be tainted and hold no values at all.</td><td class="c">x</td><td class="c">x</td></tr>
+      <tr><td><code>Integer</code></td><td>This allowes for integer numbers to be provided. If just one value provided is not an integer, no values are derived and the parameter is tainted.</td><td class="c">x</td><td class="c">x</td></tr>
+      <tr><td><code>Double</code></td><td>A parameter giving floating point numbers. If just one value cannot be interpreted as a number, then the parameter will not contain any values and is tainted.</td><td class="c">x</td><td class="c">x</td></tr>
+    </table>
+    <p>Important: By default, C# allowes for provided numbers to be parsed considering the region or format settings of a machine. In some countries the decimal point is not a dot (<code>.</code>) but a comma (<code>,</code>). So a German format number <code>1,2</code> would mean the same as a Britisch format <code>1.2</code>. The C# parser by default would consider this. This library however, does not. Number values are always interpreted as usually done in technical environments, with a dot as a decimal point, not a comma. (Sorry, Germans...) But: The comma still may be used as a grouping separator (e. g. one Million written as <code>1,000,000</code>), even for unsigned and signed integers. This requires the no splitting option to be used, as otherwise commas will be interpreted as separating multiple numbers into individual values (leaving you with a list of the values <code>1</code>, <code>0</code> and <code>0</code> for that Million...).</p>
+    <h3 id="parameterflaws">Parameter Flaws</h3>
+    <p>During the parsing process of the provided arguments from the console, a lot can go wrong. Therefore the enum <code>ParameterFlaw</code> is used to give more details on what went on instead of only providing the tainted value of a parameter. The following values may occur:</p>
+    <table>
+      <tr><th>Parameter Flaw</th><th>Problem</th></tr>
+      <tr><td><code>ParameterMissing</code></td><td>This parameter was declared as mandatory but was not provided by the user at all.</td></tr>
+      <tr><td><code>ValuesMissing</code></td><td>This means, the parameter was present on the arguments but no values followed it. Wither the parameter was the very last argument, or the next argument was a parameter name itself.</td></tr>
+      <tr><td><code>ParseError</code></td><td>This problem only orrurs when trying to parse number type parameters but the provided values could not be parsed as the corresponding type (e. g. an integer value list is required, but at least one text value was provided).</td></tr>
+      <tr><td><code>TooManyValues</code></td><td>The maximum number of values set by the parameter definition was exeeded by the number of actually provided values.</td></tr>
+      <tr><td><code>TooFewValues</code></td><td>The manimum number of values set by the parameter definition was not reached by the number of actually provided values.</td></tr>
+      <tr><td><code>RuleViolation</code></td><td>This flaw actually is not used right now. In future versions a Delegate will be optionally provided to the parameter definition, that can do extended checks on provided parameter values (e. g. the sum of integer values must have a certain value). At the moment it will not occur.</td></tr>
+    </table>
+    <h3 id="parameterdefinitions">Parameter Definitions</h3>
+    <p>A <code>ParameterDefinition</code> is an object which specifies an expected (not neccessarily required!) parameter, that provided console arguments will be scanned for. The minimum required information for it is a parameter name, what kind of values it expects (see section <a href="#parametertypes">Parameter Types</a>) and if it is a required parameter. Optional information given for a parameter definition is the minimum number of values to be provided with this parameter by the user and the maximum number of values accepted for this parameter from the user. The last optional information is how input strings shall be interpreted. As one big value, no splitting into smaller chunks at <code>,</code> characters, or better as a comma separated list of values. There is only one constructor available for parameter definitions:</p>
+    <p><code>ParameterDefinition(string ParameterName, ParameterType Type, bool Required[, uint MinimumNumberOfValues, uint MaximumNumberOfValues, bool AsOneValue])</code></p>
+    <p>The required values are:</p>
+    <table>
+      <tr><th>Value</th><th>Description</th></tr>
+      <tr><td>ParameterName</td><td>This is a <code>string</code> value. It may hold any kind of text. But it is recommended to not use obscure characters here or use <a href="#prefixes">prefixes</a> as part of the name. This text in combination with the prefix will have to be entered by the user in order to mark the beginning of a parameter. E. g. parameter <code>verbose</code> in combination with prefix <code>--</code> will only be recognized as such when written als <code>--verbose</code>. So when working with parameter names in software, the prefix is to be omitted. When using the console application, the prefix has to be prepended.</td></tr>
+      <tr><td>Type</td><td>This is a <code>ParameterType</code> enum value. See section <a href="#parametertypes">Parameter Types</a> on what properties and limitations the various types have.</td></tr>
+      <tr><td>Required</td><td>This is a <code>bool</code> value. If set to <code>true</code> this parameter must be provided by the user. Otherwise the parameter will be tainted and a corresponding flaw be added to its flaws list. Also (obviously) no values will be derived by it. If a parameter is defined as not being required, it will still be added to the list of parameters but it will not contain any values. It will not be tainted by this.</td></tr>
+    </table>
+    <p>The optional values are:</p>
+    <table>
+      <tr><th>Value</th><th>Description</th></tr>
+      <tr><td>MinimumNumberOfValues</td><td>An unsigned integer. If set, then the user is required to provide at least as many values with this parameter. Otherwise the parameter will be marked as tainted and the corresponding flaw added. Note: This only applies <i>if</i> the parameter actually is provided by the user. This also means, if the parameter is optional, then the minimum number has no effect if the parameter was not used at all. It will be not tainted, but the number of values of the returned parameter may still be zero. The default value is <code>0</code>, which means no lower limit. If MaximumNumberOfValues or AsOneValue are to be used, this value becomes mandatory to be provided with a parameter definition, but may be set to <code>0</code>.</td></tr>
+      <tr><td>MaximumNumberOfValues</td><td>An unsigned integer. If set, then the user is required to provide no more values with the parameter than specified. Otherwise the parameter will be marked as tainted and the corresponding flaw added. The default value is <code>0</code>, which means no upper limit. If AsOneValue are to be used, this value becomes mandatory to be provided with a parameter definition, but may be set to <code>0</code>.</td></tr>
+      <tr><td>AsOneValue</td><td>A bool value with default <code>false</code>. There are instances when a parameter text provided by the user should not be split into individual chunks. Simple example: If a number may be allowed to be provided with commas as grouping mechanism (e. g. one Million written as <code>1,000,000</code>, the separation would destroy the values. Or if you ask for a file name, it would not allow for the file name to contain commas, which in reality a file name may contain. In such instances use this option to prevent splitting. Obviously this means, you will get exactly one value at any time, as splitting with commas does not occur any more, leaving one chunk. This may cause parsing issues when the user tries to provide multiple texts for strings.</td></tr>
+    </table>
+    <p>The following exceptions may be thrown during creation of a ParameterDefinition object:</p>
+    <table>
+      <tr><th>Exception Name</th><th>Reason</th></tr>
+      <tr><td><code>ParameterDefinitionNameRequiredException</code></td><td>The parameter value string was null or empty.</td></tr>
+      <tr><td><code>ParameterDefinitionRequiredException</code></td><td>A Boolean type parameter definition was set to be mandatory but may never be required.</td></tr>
+      <tr><td><code>ParameterDefinitionLimitsFaultyException</code></td><td>Maximum and minimum value limits were used but the maximum is smaller than the minimum.</td></tr>
+      <tr><td><code>ParameterDefinitionNoSplitMinNumberWrongException</code></td><td>The parameter definition was set to not split values at commas, which at best can give one value. At the same time, the minimum number of values was set to more than one, which is not allowed.</td></tr>
+      <tr><td><code>ParameterDefinitionNoSplitException</code></td><td>A boolean parameter definition was set to not split values. This makes no sense, as Booleans will never contain any actual data besides being provided or not. This is more of a cleanlynes problem.</td></tr>
+    </table>
+    <p>The following (public) methods are available:</p>
+    <table>
+      <tr><th>Method Name</th><th>Usage/Effect</th></tr>
+      <tr><td><code>getParameterName()</code></td><td>Returns the string with the initially defined parameter name (without prefix).</td></tr>
+      <tr><td><code>getType()</code></td><td>Returns the ParameterType value of that parameter definition.</td></tr>
+      <tr><td><code>getIsRequired()</code></td><td>Returns the boolean indicating if that parameter will be required to be provided by the user.</td></tr>
+      <tr><td><code>getMinValues()</code></td><td>Returns the uint value of minimum number of parameter values to be entered by the user.</td></tr>
+      <tr><td><code>getMaxValues()</code></td><td>Returns the uint value of maximum number of parameter values to be entered by the user.</td></tr>
+      <tr><td><code>getNoSplit()</code></td><td>Returns a bool indicating if this definition causes entered data to be split at commas into individual values.</td></tr>
+    </table>
+    <p>You will notice, that there are only getter methods and no setters. This is intended! A parameter definition is meant to be created and then not changed at any time. The reason for this is, that changing a parameter definition later usually does not make any sense. Once the initialisation of the ConsoleParameters was done, the parameter definitions do not serve any purpose any more. So changing the values afterwards will not accomplish anything any more. And inbetween the creation of a definition and its usage during initialisation it should also not be required to change values.</p>
+    <p>So better try and aim for clean coding where you first collect all the information required for the parameter definition and then create the parameter definition instead of fiddling around with it until it fits. For similar reasons the getters should also not be required. (You do know what you are doing and therefore know, how that parameter definition looked, when you provided it to the ConsoleParameter initialisation, right?) But for debugging reasons this might come in handy.</p>
+    <h2 id="parameters">Parameters</h2>
+    <p>Once the initialisation of the ConsoleParameters is done, the gathered information is available as a list of <code>Parameter</code> objects. A Parameter will contain the collected data, if it was provided properly on the console, along with information on its state (e. g. whether it was <i>not</i> provided properly). Parameters are <i>not</i> meant to be instantiated by the programmer by himself but <i>only</i> by the ConsoleParameter class. Therefore the constructors are not described here.</p>
+    <p>The Parameter class has the following methods:</p>
+    <table>
+      <tr><th>Method</th><th>Description</th></tr>
+      <tr><td><code>getName()</code></td><td>Returns the parameter name as a string without <a href="#prefixes">prefix.</td></tr>
+      <tr><td><code>getIsTainted()</code></td><td>Returns a bool indicating if something went wrong during parsing. For details use method <code>getFlaws()</code>.</td></tr>
+      <tr><td><code>getType()</code></td><td>Returns the <a href="#parametertypes">ParameterType</a> as was provided to the corresponding parameter definition.</td></tr>
+      <tr><td><code>getNumberOfValues()</code></td><td>Returns an uint holding the number of actually available values in this parameter. This can be zero for three reasons:<ul>
+            <li>Parameter was not provided at all.</li>
+            <li>The parameter was used but no values were provided (bare parameter name).</li>
+            <li>The parsing of the provided values failed.</li>
+          </ul>In any case only Boolean type parameters do not require any provided values (but still hold one value, so the number would be <code>1</code> anyways). So a parameter having zero values is a dead giveaway of a problem (besides of the obvious tainted flag).</td></tr>
+      <tr><td><code>getBoolValue()</code></td><td>Returns the bool flag that could be derived by the presence or absence of this parameter in the console arguments.</td></tr>
+      <tr><td><code>getStringValues()</code></td><td>Returns a string[] with the derived string values.</td></tr>
+      <tr><td><code>getDoubleValues()</code></td><td>Returns a double[] with the derived double values.</td></tr>
+      <tr><td><code>getIntegerValues()</code></td><td>Returns an int[] with the derived int values.</td></tr>
+      <tr><td><code>getUintegerValues()</code></td><td>Returns an uint[] with the derived uint values.</td></tr>
+      <tr><td><code>getFlaws()</code></td><td>Returns a List&lt;ParameterFlaw&gt;, containing all the <a href="#parameterflaws">Parameter Flaws</a> that occured during parsing.</td></tr>
+      <tr><td><code>ToString()</code></td><td>Returns a string representation of the parameter (not it's actual value(s)).</td></tr>
+    </table>
+    <p>All <code>get...Value()</code> methods return arrays of the types specified in the parameter. If no value could be derived (for whatever reason) this is an empty array, not a null value. If such a method is used but does not fit the parameter type set, a corresponding exception will be thrown. This pretty much always means, the programmer got that mixed up.</p>
+    <p>The possibly thrown exceptions are:</p>
+    <table>
+      <tr><th>Exception Name</th><th>Problem</th></tr>
+      <tr><td><code>ParameterValuesRequiredException</code></td><td>This is an internal exception, indicating, that a new instance of Parameter was not successfully created as the value array was missing.</td></tr>
+      <tr><td><code>ParameterNameRequiredException</code></td><td>This is an internal exception, indicating, that a new instance of Parameter was not successfully created as the name was missing or having a length of 0 characters.</td></tr>
+      <tr><td><code>ParameterTypeWrongForGetting</code></td><td>You tried to get a value array from the parameter, using  the wrong <code>get...Value()</code> method. The method must match the parameter type. This most likely means, you got the types mixed up somehow.</td></tr>
+    </table>
+  </body>
+</html>
