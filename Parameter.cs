@@ -31,9 +31,11 @@ public class Parameter {
     int[] intValues = new int[0];
     bool isTainted = false;
     List<ParameterFlaw> flaws = new List<ParameterFlaw>();
+    string helpText; //May contain an explanation of what this parameter is supposed to do, what values it will expect and if it is mandatory or not.
 
     public Parameter(string newParameterName, // Only to be used to create boolean type parameters
-                     bool newValue) {
+                     bool newValue,
+                     string newHelpText = null) {
         if (   newParameterName == null
             || newParameterName.Length < 1) {
             throw new ParameterNameRequiredException("For a parameter definition a parameter name of at least one character length is required!");
@@ -42,6 +44,7 @@ public class Parameter {
         this.type = ParameterType.Boolean;
         this.numberOfValues = 1;
         this.boolValue = newValue; //Funny thing is, Bools can never be tainted. Either they are present, or not. =)
+        this.helpText = newHelpText;
     }
 
     public Parameter(ParameterDefinition pDef,
@@ -57,7 +60,8 @@ public class Parameter {
                                           pDef.getType(),
                                           splitString,
                                           pDef.getMinValues(),
-                                          pDef.getMaxValues());
+                                          pDef.getMaxValues(),
+                                          pDef.getHelpText());
         this.parameterName = pDef.getParameterName();
         this.type = pDef.getType();
         this.numberOfValues = newOne.getNumberOfValues();
@@ -67,6 +71,7 @@ public class Parameter {
         this.intValues = newOne.getIntegerValuesUnsafe();
         this.doubleValues = newOne.getDoubleValuesUnsafe();
         this.flaws = newOne.getFlaws();
+        this.helpText = newOne.getHelpText();
         this.isTainted = newOne.getIsTainted();
     }
 
@@ -76,6 +81,7 @@ public class Parameter {
         this.type = pDef.getType();
         this.numberOfValues = 0;
         this.isTainted = isTainted;
+        this.helpText = pDef.getHelpText();
         if (   this.numberOfValues == 0
             && pDef.getIsRequired()) this.isTainted = true; //If it's required, it's required!
         if (isTainted) { //Means, nothing was provided but the parameter was present!
@@ -91,7 +97,8 @@ public class Parameter {
                      ParameterType newType,    // Will always be provided (cannot be defined as null by the caller), so no exception required!
                      string[] providedValues,
                      uint newMinValues = 0,
-                     uint newMaxValues = 0) {
+                     uint newMaxValues = 0,
+                     string newHelpText = null) {
         if (   newParameterName == null
             || newParameterName.Length < 1) {
             throw new ParameterNameRequiredException("For a parameter definition a parameter name of at least one character length is required!");
@@ -156,6 +163,8 @@ public class Parameter {
         if (newMaxValues > 0 && newMaxValues < this.numberOfValues) {
             this.flaws.Add(ParameterFlaw.TooManyValues);
         }
+
+        this.helpText = newHelpText;
 
         if (flaws.Count > 0) this.isTainted = true;
     }
@@ -252,6 +261,10 @@ public class Parameter {
 
     public List<ParameterFlaw> getFlaws() {
         return flaws;
+    }
+
+    public string getHelpText() {
+        return this.helpText;
     }
 
     private static string[] valueSplit (string value) {

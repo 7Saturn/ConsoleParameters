@@ -1,11 +1,12 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Runtime.CompilerServices; //Caller-Info
+using System.Threading;
 
 /* Ideas for expansion:
 
- * Automatic Help-Text generation: ParameterDefinition gets a description text and a summary text is provided, too. This way a generic Help-String can be generated, including how to run the command with optional and required parameters, description of parameter's effect and an overall description, what the program does or requires. Can even be automatically invoked when the Parameters were somehow tainted.
  * Special requirements for the provided values might as well be checked by a CallBack/Delegate, that does checks on them. See ParameterFlaw definition in Parameter.cs
  * A more explicit information, what went wrong with the provided arguments from the user during initialisation (doubled parameters provided, missing parameters, unknown parameter names). Right now tainted only means something went wrong. Checking all the before mentioned and all parameters for faults is a bit tiresome.
 
@@ -35,11 +36,17 @@ public static class ConsoleParameters {
     private static List<string> unknownParameterNames = new List<string>(); // All parameters provided by the user /not/ present in the definition, aka unknown parameters
     private static List<string> missingButRequiredParameterNames = new List<string>(); //All parameters omitted by the user but required of him
     private static List<string> residualArgs; //All the rest or args after removing all parameters and their values. This allowes things like 7za a archivename.7z -mx0, getting »a« as command, »archivename.7z« as archive name and still leave -mx0 as a parameter name that can be present or not.
+    private static string helpText; //This is the text being printed between the generic console call shown and the list of parameters. Should describe what the program is supposed to do and stuff like that. The actual parameters are /not/ to be described here, unless it helps for understanding!
+    private static bool autoHelp = false;
+    private static uint maxWidth = (uint) Console.WindowWidth;
 
     public static void InitializeParameters(string newParameterPrefix,
                                             ParameterDefinition[] newParameterDefinitions,
-                                            string[] args) {
-
+                                            string[] args,
+                                            string description = null,
+                                            bool autoHelpOnError = false) {
+        helpText = description;
+        autoHelp = autoHelpOnError;
         //This must be allowed only once
         if (wasInitializedFlag) throw new ParameterAlreadyInitializedException();
 
@@ -91,6 +98,10 @@ public static class ConsoleParameters {
 
         // And of course the actual arguments provided have to be OK, too.
         if (args == null) throw new ParameterArgsMissingException("Parameter initialization failed. The parameter string array must provide at least an empty string array (usually that is 'args' provided to Main).");
+
+        // Automatic help texts cannot be done without their content provided.
+        if (   helpText == null
+            && autoHelp) throw new HelpTextUnavailableException("Parameter initialization failed. auto Help was set. This is only possible if a help Text was provided, too, which is not!");
 
         //So from here on, all ParameterDefinitions are OK. Let's see, what the user provided on the console...
         residualArgs = new List<string>();
@@ -162,10 +173,10 @@ public static class ConsoleParameters {
             allowedBoolParameterNames.Add(parameterName);
             Parameter newBool;
             if (allowedProvidedParameterNames.Contains(parameterName)) { // A Bool defined in the Definitions and given by the user
-                newBool = new Parameter(boolParameterDefinition.getParameterName(), true); //Present, so flag will be set.
+                newBool = new Parameter(boolParameterDefinition.getParameterName(), true, boolParameterDefinition.getHelpText()); //Present, so flag will be set.
             }
             else {// A Bool defined in the Defintions, but not given by the user
-                newBool = new Parameter(boolParameterDefinition.getParameterName(), false); //Not present, so flag unset.
+                newBool = new Parameter(boolParameterDefinition.getParameterName(), false, boolParameterDefinition.getHelpText()); //Not present, so flag unset.
             }
             listOfParameters.Add(newBool);
         }
@@ -232,6 +243,71 @@ public static class ConsoleParameters {
             if (toCheck.getIsTainted()) ConsoleParameters.isTainted = true;
         }
         ConsoleParameters.wasInitializedFlag = true;
+        if (   autoHelp
+            && isTainted) {
+            printParameterHelp();
+            Console.WriteLine();
+            printParameterFaults();
+            Environment.Exit(2);
+        }
+    }
+
+    private static void printParameterFaults() {
+        List<string> missingParameters = ConsoleParameters.getMissingButRequiredParameterNames();
+        if (missingParameters.Count > 0) {
+            string missingParameterNames = commaConcatStringList(missingParameters);
+            missingParameterNames = "The following parameters are required but were not provided: " + missingParameterNames;
+            printStringList(textBrokenUp(missingParameterNames, maxWidth));
+        }
+
+        List<string> doubledParameters = ConsoleParameters.getDoubledParameterNames();
+        if (doubledParameters.Count > 0) {
+            string doubledParameterNames = commaConcatStringList(doubledParameters);
+            doubledParameterNames = "The following parameters were provided at least twice: " + doubledParameterNames;
+            printStringList(textBrokenUp(doubledParameterNames, maxWidth));
+        }
+
+        List<string> unknownParameters = ConsoleParameters.getUnknownParameterNames();
+        if (unknownParameters.Count > 0) {
+            string unknownParametersNames = commaConcatStringList(unknownParameters);
+            unknownParametersNames = "The following provided parameters are unknown: " + unknownParametersNames;
+            printStringList(textBrokenUp(unknownParametersNames, maxWidth));
+        }
+        if (ConsoleParameters.getMissingValueParameterNames().Count > 0) {
+            List <string> MissingValueParameterNamesNoPfx = ConsoleParameters.getMissingValueParameterNames();
+            List <string> MissingValueParameterNames = new List<string>();
+            foreach (string m in MissingValueParameterNamesNoPfx) {
+                MissingValueParameterNames.Add(withPrefix(m));
+            }
+            string valueLessParameters = "The following parameters have no values: " + commaConcatStringList(MissingValueParameterNames);
+            printStringList(textBrokenUp(valueLessParameters, maxWidth));
+        }
+        List<string> parseErrorParameterNames = new List<string>();
+        List<string> tooManyParameterNames = new List<string>();
+        List<string> tooFewParameterNames = new List<string>();
+        List<string> ruleViolationParameterNames = new List<string>();
+        foreach(Parameter p in getParameters()) {
+            if (p.getFlaws().Contains(ParameterFlaw.ParseError)) parseErrorParameterNames.Add(withPrefix(p.getName()));
+            if (p.getFlaws().Contains(ParameterFlaw.TooManyValues)) tooManyParameterNames.Add(withPrefix(p.getName()));
+            if (p.getFlaws().Contains(ParameterFlaw.TooFewValues)) tooFewParameterNames.Add(withPrefix(p.getName()));
+            if (p.getFlaws().Contains(ParameterFlaw.RuleViolation)) ruleViolationParameterNames.Add(withPrefix(p.getName()));
+        }
+        if (parseErrorParameterNames.Count > 0) {
+            string parseErrorParameters = "The following parameters could not be parsed properly: " + commaConcatStringList(parseErrorParameterNames);
+            printStringList(textBrokenUp(parseErrorParameters, maxWidth));
+        }
+        if (tooManyParameterNames.Count > 0) {
+            string tooManyParameters = "The following parameters provided too many values: " + commaConcatStringList(tooManyParameterNames);
+            printStringList(textBrokenUp(tooManyParameters, maxWidth));
+        }
+        if (tooFewParameterNames.Count > 0) {
+            string tooFewParameters = "The following parameters provided too few values: " + commaConcatStringList(tooFewParameterNames);
+            printStringList(textBrokenUp(tooFewParameters, maxWidth));
+        }
+        if (ruleViolationParameterNames.Count > 0) {
+            string ruleViolationParameters = "The following parameters violated a special quality rule: " + commaConcatStringList(ruleViolationParameterNames);
+            printStringList(textBrokenUp(ruleViolationParameters, maxWidth));
+        }
     }
 
     public static string GetApplicationFileName() {
@@ -389,6 +465,206 @@ public static class ConsoleParameters {
             Console.WriteLine(p.ToString());
         }
     }
+
+    private static List<string> getParameterHelpLines() {
+        ensureInitializationDone();
+        if (helpText == null) {
+            throw new HelpTextUnavailableException("ConsoleParameters helpText is not set. Automatic help text is unavailable.");
+        }
+        List<string> result = new List<string>();
+        string runcmd = getStartCommand() + " ";
+        string mandatory = "";
+        string optional = "";
+        foreach(Parameter p in getParameters()) {
+            ParameterDefinition pDef = getParameterDefinitionByName(p.getName());
+            string parameterName = p.getName();
+            if (p.getType() == ParameterType.Boolean){ //are always optional and take no values at all
+                parameterName = " [" + withPrefix(parameterName) + "]";
+                if (optional.Equals("")) {
+                    optional = parameterName;
+                }
+                else {
+                    optional += " " + parameterName;
+                }
+            }
+            else {//non-Bool
+                parameterName = withPrefix(parameterName) + " <";
+                switch (pDef.getType()) {
+                    case ParameterType.String:
+                        parameterName += "string value";
+                        break;
+                    case ParameterType.Uinteger:
+                        parameterName += "unsigned integer value";
+                        break;
+                    case ParameterType.Integer:
+                        parameterName += "signed integer value";
+                        break;
+                    case ParameterType.Double:
+                        parameterName += "floating point value";
+                        break;
+                    default:
+                        break;
+                }
+                if (pDef.getMinValues() > 1) parameterName += "s"; //requires multiple ones in any case.
+                if (    pDef.getMinValues() < 2 //allowes for multiple ones but does not need more than one.
+                    && !pDef.getNoSplit() //always one
+                    && !(pDef.getMaxValues() < 2)){// not 1 max.
+                    parameterName += "(s)";
+                }
+                parameterName = parameterName + ">";
+                if (pDef.getIsRequired()) {
+                    parameterName = " " + parameterName;
+                    if (mandatory.Equals("")) {
+                        mandatory = parameterName;
+                    }
+                    else {
+                        mandatory += " " + parameterName;
+                    }
+                }
+                else { // optional
+                    parameterName = " [" + parameterName + "]";
+                    if (optional.Equals("")) {
+                        optional = parameterName;
+                    }
+                    else {
+                        optional += parameterName;
+                    }
+                }
+
+            }
+        }
+        runcmd += mandatory + optional;
+        List<string> runcmdLines = textBrokenUp(runcmd, maxWidth);
+        result.AddRange(runcmdLines);
+        result.Add("");
+        List<string> overallDescription = textBrokenUp(helpText, maxWidth);
+        result.AddRange(overallDescription);
+        result.Add("");
+        List<string> parameterNames = getAllParameterNames(); // These include the prefix already.
+        uint leftColWidth = getMaxWidth(parameterNames) + 2; // Giving the parameter name a little distance from the description.
+        uint rightColWidth = 0;
+        try {
+            rightColWidth = maxWidth - leftColWidth;
+        }
+        catch {
+            Console.WriteLine("Seriously? A console window with width " + maxWidth + "characters? Make room for some output text! At least " + leftColWidth + 3 + "columns are recommended.");
+            Environment.Exit(1);
+        }
+        foreach (Parameter p in getParameters()) {
+            string pName = withPrefix(p.getName());
+            string padding = Space((int) (leftColWidth - pName.Length));
+            string pDescription = p.getHelpText();
+            if (pDescription == null) throw new HelpTextUnavailableException("ParameterDefinition " + pName + ": No help text set, automatic help text is unavailable.");
+            if (pDescription == null) return result;
+            List<string> descriptionParts = textBrokenUp(pDescription, rightColWidth);
+            string firstLine = pName + padding + descriptionParts[0];
+            result.Add(firstLine);
+            descriptionParts.RemoveAt(0);
+            padding = Space((int) leftColWidth);
+            foreach(string s in descriptionParts){
+                string line = padding + s;
+                result.Add(line);
+            }
+        }
+        return result;
+    }
+
+    public static void printParameterHelp() {
+        List<string> parameterHelpLines = getParameterHelpLines();
+        printStringList(parameterHelpLines);
+    }
+
+    private static uint getMaxWidth(List<string> strings) {
+        uint maxLength = 0;
+        foreach(string s in strings) {
+            if (maxLength < (uint) s.Length) maxLength =  (uint) s.Length;
+        }
+        return maxLength;
+    }
+
+    public static List<string> textBrokenUp(string text,
+                                            uint maxWidth) {
+        if (maxWidth < 2) { // probably academic, but anyways, this might happen.
+            maxWidth = 1;
+        }
+        else {
+            maxWidth -= 1; //The tiresome problem of optical line beaks at the end of the line when reaching its border, that some consoles rewrap, and others don't... So one less than specified, even if it breaks my heart.
+        }
+        List<string> textList = new List<string>(Regex.Split(text, @"\s+"));
+        List<string> trunkatedTextList = new List<string>();
+        string nextBlock = "";
+        while (textList.Count > 0) { // When there is nothing left, stop.
+            if (textList[0].Length > maxWidth) { // That's not exactly a good start...
+                string toBeSplit = textList[0];
+                textList.RemoveAt(0);
+                string first = toBeSplit.Substring(0, (int) maxWidth);
+                string second = toBeSplit.Substring((int) maxWidth);
+                trunkatedTextList.Add(first); //Add that full-width line already. It won't get any longer...
+                textList.Insert(0, second); //put back the rest.
+            }
+            while (   textList.Count > 0 //this may change at any time
+                   && nextBlock.Length + 1 + textList[0].Length <= maxWidth) {
+                string newBlockElement = textList[0];
+                textList.RemoveAt(0);
+                if (nextBlock.Length > 0) {
+                    nextBlock += " " + newBlockElement;
+                }
+                else {
+                    nextBlock = newBlockElement;
+                }
+            }
+            if (   textList.Count > 0
+                && textList[0].Length > maxWidth
+                && (nextBlock.Length + 1) < maxWidth) { // That one would have to be split anyways next round, so we might as well do it here and add what we can right now to the current line
+                string toBeSplit = textList[0];
+                uint maximumResidualLength = maxWidth - (uint) nextBlock.Length - 1; //There's a space added on top of that, so one less.
+                if (nextBlock.Length == 0) maximumResidualLength += 1;
+                textList.RemoveAt(0);
+                string first = toBeSplit.Substring(0, (int) maximumResidualLength);
+                string second = toBeSplit.Substring((int) maximumResidualLength);
+                if (nextBlock.Length == 0) {
+                    nextBlock = first;
+                }
+                else {
+                    nextBlock += " " + first; // Add that rest to the current line, wrapping things up there.
+                }
+                textList.Insert(0, second); // Rest will be taken care of later
+            }
+            trunkatedTextList.Add(nextBlock);
+            nextBlock = "";
+        }
+        return trunkatedTextList;
+    }
+
+    private static string Space(int length) {
+        string spaces = "".PadLeft(length);
+        return spaces;
+    }
+
+    public static string getHelpText() {
+        return helpText;
+    }
+
+    public static bool getAutoHelp() {
+        return autoHelp;
+    }
+
+    public static string commaConcatStringList(List<string> strings) {
+        string output = null;
+        foreach (string element in strings) {
+            if (output == null) {
+                output = element;
+            }
+            else {
+                output += ", " + element;
+            }
+        }
+        return output;
+    }
+
+    private static void printStringList(List<string> list) {
+        foreach(string item in list) Console.WriteLine(item);
+    }
 }
 
 public class ParameterPrefixFaultyException : System.Exception {
@@ -464,4 +740,15 @@ public class ParameterAlreadyInitializedException : System.Exception {
 
     protected ParameterAlreadyInitializedException(System.Runtime.Serialization.SerializationInfo info,
                                                    System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
+}
+
+public class HelpTextUnavailableException : System.Exception {
+    public HelpTextUnavailableException() : base() {
+        throw new HelpTextUnavailableException("The automatically generated help text is not available. Either you forgot setting the description value for ConsoleParameters or for at least one ParameterDefinition.");
+    }
+    public HelpTextUnavailableException(string message) : base(message) { }
+    public HelpTextUnavailableException(string message, System.Exception inner) : base(message, inner) { }
+
+    protected HelpTextUnavailableException(System.Runtime.Serialization.SerializationInfo info,
+                                           System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
 }

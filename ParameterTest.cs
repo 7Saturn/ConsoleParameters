@@ -10,118 +10,91 @@ public static class ParameterTest {
                                                                            false,
                                                                            0,
                                                                            0,
-                                                                           false),
+                                                                           false,
+                                                                           "This is a testing Boolean."),
                                                    new ParameterDefinition("uinttest",
                                                                            ParameterType.Uinteger,
                                                                            false,
                                                                            0,
                                                                            1,
-                                                                           false),
+                                                                           true,
+                                                                           "This is a testing unsigned integer. It is optional, but if used, may only provide one value. It will not be split at comma positions."),
                                                    new ParameterDefinition("inttest",
                                                                            ParameterType.Integer,
                                                                            false,
                                                                            1,
                                                                            2,
-                                                                           false),
+                                                                           false,
+                                                                           "This is a testing Integer. It is optional, but if used, requires exactly 1 or 2 values. It is split normally."),
                                                    new ParameterDefinition("dtest",
                                                                            ParameterType.Double,
-                                                                           false,
+                                                                           true,
                                                                            2,
                                                                            3,
-                                                                           false),
+                                                                           false,
+                                                                           "This is a testing floating point value. It is mandatory and may hold exactly 2 or 3 values."),
                                                    new ParameterDefinition("stringtest",
                                                                            ParameterType.String,
                                                                            true,
-                                                                           3,
+                                                                           1,
                                                                            4,
-                                                                           false),
+                                                                           false,
+                                                                           "This is a testing String parameter. It is mandatory. It requires 1-4 values, no more."),
                                                },
-                                               args);
+                                               args,
+                                               "This is a parameter test program.",
+                                               true);
         List<string> parameterNames = ConsoleParameters.getAllParameterNames();
-        Console.WriteLine("The following parameter names are potentially used: " + commaConcatStringList(parameterNames));
+        Console.WriteLine("The following parameter names are potentially used: " + ConsoleParameters.commaConcatStringList(parameterNames));
         Console.WriteLine(ConsoleParameters.getStartCommand());
         Console.WriteLine("The following console arguments were provided: " + commaConcatStringList(args));
-        Console.WriteLine("--------------------");
-
-        if (ConsoleParameters.getIsTainted()) {
-            Console.WriteLine("---------- something went wrong:");
-            List<string> missingParameters = ConsoleParameters.getMissingButRequiredParameterNames();
-            if (missingParameters.Count > 0) {
-                string missingParameterNames = commaConcatStringList(missingParameters);
-                Console.WriteLine("The following parameters are required but were not provided: " + missingParameterNames);
-            }
-            List<string> doubledParameters = ConsoleParameters.getDoubledParameterNames();
-            if (doubledParameters.Count > 0) {
-                string doubledParameterNames = commaConcatStringList(doubledParameters);
-                Console.WriteLine("The following parameters were provided at least twice by the user: " + doubledParameterNames);
-            }
-            List<string> unknownParameters = ConsoleParameters.getUnknownParameterNames();
-            if (unknownParameters.Count > 0) {
-                string unknownParametersNames = commaConcatStringList(unknownParameters);
-                Console.WriteLine("The following unknown parameters were provided: " + unknownParametersNames);
-            }
-
-            foreach (Parameter p in ConsoleParameters.getParameters()) {
-                if (p.getIsTainted()) {
-                    Console.WriteLine("-----");
-                    Console.WriteLine("Parameter " + p.getName() + " hat folgende Probleme:");
-                    foreach(ParameterFlaw prob in p.getFlaws()) {
-                        Console.WriteLine(prob.ToString());
-                    }
-                    Console.WriteLine("-----");
-                }
-            }
-            if (ConsoleParameters.getMissingValueParameterNames().Count > 0) {
-                Console.WriteLine("Die folgenden Parameter haben keine Werte:");
-                Console.WriteLine(commaConcatStringList(ConsoleParameters.getMissingValueParameterNames()));
-            }
-            Console.WriteLine("----------");
+        Parameter booltest = ConsoleParameters.getParameterByName("booltest");
+        bool testbool = booltest.getBoolValue();
+        if (testbool) {
+            Console.WriteLine("'booltest' was provided");
         }
         else {
-            Console.WriteLine("----------Alles gut:");
-            Parameter booltest = ConsoleParameters.getParameterByName("booltest");
-            bool testbool = booltest.getBoolValue();
-            if (testbool) {
-                Console.WriteLine("'booltest' was provided");
-            }
-            else {
-                Console.WriteLine("'booltest' was not provided");
-            }
+            Console.WriteLine("'booltest' was not provided");
+        }
 
-            Parameter uinttest = ConsoleParameters.getParameterByName("uinttest");
-            uint[] uinttestWerte = uinttest.getUintegerValues();
-            Console.WriteLine("Parameter uinttest hat " + uinttest.getNumberOfValues() + " Parameter:");
-            foreach (uint wert in uinttestWerte) {
-                Console.WriteLine(wert);
-            }
+        Parameter uinttest = ConsoleParameters.getParameterByName("uinttest");
+        uint[] uinttestWerte = uinttest.getUintegerValues();
+        Console.WriteLine("Parameter uinttest has " + uinttest.getNumberOfValues() + " values:");
+        foreach (uint wert in uinttestWerte) {
+            Console.WriteLine(wert);
+        }
 
-            Parameter inttest = ConsoleParameters.getParameterByName("inttest");
-            int[] inttestWerte = inttest.getIntegerValues();
-            Console.WriteLine("Parameter inttest hat folgende Werte:");
-            foreach (int wert in inttestWerte) {
-                Console.WriteLine(wert);
-            }
+        Parameter inttest = ConsoleParameters.getParameterByName("inttest");
+        int[] inttestWerte = inttest.getIntegerValues();
+        Console.WriteLine("Parameter inttest has the following values:");
+        foreach (int wert in inttestWerte) {
+            Console.WriteLine(wert);
+        }
 
-            Parameter dtest = ConsoleParameters.getParameterByName("dtest");
-            Console.WriteLine("dtest hat " + dtest.getNumberOfValues() + " Werte.");
+        Parameter dtest = ConsoleParameters.getParameterByName("dtest");
+        Console.WriteLine("dtest has " + dtest.getNumberOfValues() + " values.");
+        if (dtest.getNumberOfValues() > 0) {
             double[] dtestWerte = dtest.getDoubleValues();
-            Console.WriteLine("Parameter dtest hat folgende Werte:");
+            Console.WriteLine("Parameter dtest has the following values:");
             foreach (double wert in dtestWerte) {
                 Console.WriteLine(wert);
             }
-            Parameter stringtest = ConsoleParameters.getParameterByName("stringtest");
-            if (stringtest.getNumberOfValues() == 0) {
-                Console.WriteLine("Parameter stringtest wurde nicht angegeben!");
-            }
-            string[] stringtestWerte = stringtest.getStringValues();
-            Console.WriteLine("Parameter stringtest hat folgende Werte:");
-            foreach (string wert in stringtestWerte) {
-                Console.WriteLine(wert);
-            }
-            Console.WriteLine("----------");
         }
+        else {
+            dumpParameterValues(dtest);
+        }
+        Parameter stringtest = ConsoleParameters.getParameterByName("stringtest");
+        if (stringtest.getNumberOfValues() == 0) {
+            Console.WriteLine("Parameter stringtest was not provided!");
+        }
+        string[] stringtestWerte = stringtest.getStringValues();
+        Console.WriteLine("Parameter stringtest has the following values:");
+        foreach (string wert in stringtestWerte) {
+            Console.WriteLine(wert);
+        }
+        Console.WriteLine("----------");
         if (ConsoleParameters.getResidualArgs().Count > 0) {
-            Console.WriteLine("Diese Werte blieben am Ende über:");
+            Console.WriteLine("These are the residual values (not part of any parameter):");
             foreach (string rest in ConsoleParameters.getResidualArgs()) {
                 Console.WriteLine(rest);
             }
@@ -129,19 +102,6 @@ public static class ParameterTest {
         Console.WriteLine("\n" + ConsoleParameters.getParameters().Count + " parameters were derived from the definition.");
         ConsoleParameters.dumpListOfParameters();
         return 0;
-    }
-
-    private static string commaConcatStringList(List<string> strings) {
-        string output = null;
-        foreach (string element in strings) {
-            if (output == null) {
-                output = element;
-            }
-            else {
-                output += ", " + element;
-            }
-        }
-        return output;
     }
 
     private static string commaConcatStringList(string[] strings) {
@@ -187,5 +147,31 @@ public static class ParameterTest {
             default:
                 break;
         }
+    }
+
+    private static void printRuler(uint maxWidth) {
+        Console.WriteLine("Maximum width: " + maxWidth);
+        for (uint counter = 1; counter < maxWidth; counter++){
+            if (counter % 100 == 0 && counter > 0) {
+                Console.Write((counter / 100) % 10);
+            }
+            else {
+                Console.Write(" ");
+            }
+        }
+        Console.WriteLine("");
+        for (uint counter = 1; counter < maxWidth; counter++){
+            if (counter % 10 == 0 && counter > 0) {
+                Console.Write((counter / 10) % 10);
+            }
+            else {
+                Console.Write(" ");
+            }
+        }
+        Console.WriteLine("");
+        for (uint counter = 1; counter < maxWidth; counter++){
+            Console.Write(counter % 10);
+        }
+        Console.WriteLine("");
     }
 }

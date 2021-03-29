@@ -5,12 +5,14 @@ public class ParameterDefinition {
     uint maxValues;
     bool noSplit; //If set, the comma-separated list is /not/ split. Imagine being provided a file name for opening and it actually /does/ contain a »,«. Or a double with thousand-separator »,«
     ParameterType type;
+    string helpText; // A short description text for generated help text.
     public ParameterDefinition(string newParameterName,
                                ParameterType newType,
                                bool newIsRequired = false,
                                uint newMinValues = 0,
                                uint newMaxValues = 0,
-                               bool newSplit = false) {
+                               bool newSplit = false,
+                               string newHelpText = null) {
         if (   newParameterName == null
             || newParameterName.Length < 1) {
             throw new ParameterDefinitionNameRequiredException("For a parameter definition a parameter name of at least one character length is required!");
@@ -42,6 +44,7 @@ public class ParameterDefinition {
         this.minValues = newMinValues;
         this.maxValues = newMaxValues;
         this.noSplit = newSplit;
+        this.helpText = newHelpText;
     }
 
     public string getParameterName() {
@@ -66,6 +69,10 @@ public class ParameterDefinition {
 
     public bool getNoSplit() {
         return noSplit;
+    }
+
+    public string getHelpText() {
+        return helpText;
     }
 }
 
