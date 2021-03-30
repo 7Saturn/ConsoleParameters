@@ -55,6 +55,7 @@
       </ul></li>
       <li><a href="#errorcodes">Error Codes</a></li>
       <li><a href="#example">A Short Example</a></li>
+      <li><a href="#knownproblems">Known Problems</a></li>
     </ul>
     <h2 id="contept">Concept</h2>
     <p>The concept is simple:</p>
@@ -237,8 +238,7 @@
     </table>
     <h2 "#example">A Short Example</h2>
     <p>The following example shows how this is meant to be used:</p>
-    <div>
-      <pre style="max-width: 100%; overflow: auto; background: #eeeeee;">
+    <pre style="max-width: 100%; overflow: auto; background: #eeeeee;">
 using System;
 using System.Collections.Generic;
 
@@ -278,9 +278,10 @@ public static class ParameterTest {
         string outputfile = outputfiles[0];
     }
 }
-      </pre>
-    </div>
+    </pre>
     <p>The parameters <code>overwrite</code> (a bool switch, that may be present or not, depending on what the user wants) and <code>outputfile</code> and <code>inputfile</code> are taken from the command line. Both files names may provide only one string value (that may include commas) but are required. So you can be sure the file names are present, but the boolean might not be set. After initialization of ConsoleParameters these values are at available and therefore simply taken from the parameters. The fact that the auto help is invoked when something goes wrong during parsing also makes sure you are not working on faulty data.</p>
     <p>As a result <code>--inputfile</code>, <code>--outputfile</code> and <code>--overwrite</code> are recognized as allowed parameters, in part requiring additional values to be entered.</p>
+    <h2 id="knownproblems">Known Problems</h2>
+    <p>This library is not known to cause issues on normal system setups. It was tested on Windows, Linux, MacOS and FreeBSD. The only currently known issue is with MobaXterm on Windows. When trying to start an application using this library from within MobaXterm the application will crash as it cannot derive the console window's width. On Windows' CMD.exe or Powershell you will not experience this problem.
   </body>
 </html>
