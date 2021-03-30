@@ -7,8 +7,10 @@ using System.Threading;
 
 /* Ideas for expansion:
 
- * Special requirements for the provided values might as well be checked by a CallBack/Delegate, that does checks on them. See ParameterFlaw definition in Parameter.cs
- * A more explicit information, what went wrong with the provided arguments from the user during initialisation (doubled parameters provided, missing parameters, unknown parameter names). Right now tainted only means something went wrong. Checking all the before mentioned and all parameters for faults is a bit tiresome.
+ * Special requirements for the provided values might as well be checked by a CallBack/Delegate, that does checks on them. See ParameterFlaw definition in Parameter.cs.
+ * A more explicit information, what went wrong with the provided arguments from the user during initialisation (doubled parameters provided, missing parameters, unknown parameter names) on a more generalized level (not only per parameter but somewhere, e. g. at least one parameter was missing, at least one parameter had to few values, etc.). Right now tainted for ConsoleParameters only means something went wrong but you have to find out what it was. Checking all the before mentioned and all parameters for faults is a bit tiresome.
+ * Getter for list of parameters with help texts alone, helps creating a more personal version of the help without a lack of nice formatting.
+ * New parameter that overrides standard parameter list in command line call example (because sometimes the interactions of parameters are a bit more complex than just being optional all by themselves).
 
 */
 
@@ -29,7 +31,7 @@ public static class ConsoleParameters {
     private static List<string> allowedParameterNames = new List<string>(); //The parameters allowed according to the parameter definition provided
 
     private static List<string> allProvidedParameterNames = new List<string>(); // All parameters provided by the user, but not values (e. g. »--test« but not »test«)
-    private static List<string> allowedProvidedParameterNames = new List<string>(); // All parameters provided by the user, but not values (e. g. »--test« but not »test«), that are acutally allowed by the definition
+    private static List<string> allowedProvidedParameterNames = new List<string>(); // All parameters provided by the user, but not values (e. g. »--test« but not »test«), that are actually allowed by the definition
     private static List<string> doubledParameterNames = new List<string>(); // The parameters provided by the user at least twice
     private static List<string> missingParameterNames = new List<string>(); // All parameters present in the definition /not/ provided by the user
     private static List<string> missingValueParameterNames = new List<string>(); // All parameters present in the definition and used by the user, but without values
@@ -38,7 +40,7 @@ public static class ConsoleParameters {
     private static List<string> residualArgs; //All the rest or args after removing all parameters and their values. This allowes things like 7za a archivename.7z -mx0, getting »a« as command, »archivename.7z« as archive name and still leave -mx0 as a parameter name that can be present or not.
     private static string helpText; //This is the text being printed between the generic console call shown and the list of parameters. Should describe what the program is supposed to do and stuff like that. The actual parameters are /not/ to be described here, unless it helps for understanding!
     private static bool autoHelp = false;
-    private static uint maxWidth = (uint) Console.WindowWidth;
+    private static uint maxWidth = (uint) Console.WindowWidth; //This *will* fail on Moba X Term.
 
     public static void InitializeParameters(string newParameterPrefix,
                                             ParameterDefinition[] newParameterDefinitions,
