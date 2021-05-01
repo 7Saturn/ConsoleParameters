@@ -292,7 +292,7 @@ public class Parameter {
 
     public string runCheck() {
         if (checker == null) {
-            throw new ParameterCheckerMissing("No parameter checking function was defined!");
+            throw new ParameterCheckerMissing("No parameter checking function was defined for " + parameterName + ". Cannot invoke it.");
         }
         return checker(this);
     }
