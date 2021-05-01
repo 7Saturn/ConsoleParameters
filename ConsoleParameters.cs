@@ -287,12 +287,14 @@ public static class ConsoleParameters {
         List<string> parseErrorParameterNames = new List<string>();
         List<string> tooManyParameterNames = new List<string>();
         List<string> tooFewParameterNames = new List<string>();
-        List<string> ruleViolationParameterNames = new List<string>();
+        List<string> ruleViolationHelpTexts = new List<string>();
         foreach(Parameter p in getParameters()) {
             if (p.getFlaws().Contains(ParameterFlaw.ParseError)) parseErrorParameterNames.Add(withPrefix(p.getName()));
             if (p.getFlaws().Contains(ParameterFlaw.TooManyValues)) tooManyParameterNames.Add(withPrefix(p.getName()));
             if (p.getFlaws().Contains(ParameterFlaw.TooFewValues)) tooFewParameterNames.Add(withPrefix(p.getName()));
-            if (p.getFlaws().Contains(ParameterFlaw.RuleViolation)) ruleViolationParameterNames.Add(withPrefix(p.getName()));
+            if (p.getFlaws().Contains(ParameterFlaw.RuleViolation)){
+                ruleViolationHelpTexts.Add(withPrefix(p.getName()) + ": " + p.runCheck());
+            }
         }
         if (parseErrorParameterNames.Count > 0) {
             string parseErrorParameters = "The following parameters could not be parsed properly: " + commaConcatStringList(parseErrorParameterNames);
@@ -306,9 +308,10 @@ public static class ConsoleParameters {
             string tooFewParameters = "The following parameters provided too few values: " + commaConcatStringList(tooFewParameterNames);
             printStringList(textBrokenUp(tooFewParameters, maxWidth));
         }
-        if (ruleViolationParameterNames.Count > 0) {
-            string ruleViolationParameters = "The following parameters violated a special quality rule: " + commaConcatStringList(ruleViolationParameterNames);
-            printStringList(textBrokenUp(ruleViolationParameters, maxWidth));
+        if (ruleViolationHelpTexts.Count > 0) {
+            foreach(string ruleViolationHelpText in ruleViolationHelpTexts) {
+                printStringList(textBrokenUp(ruleViolationHelpText, maxWidth));
+            }
         }
     }
 

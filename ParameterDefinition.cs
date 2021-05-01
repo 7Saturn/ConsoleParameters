@@ -1,3 +1,4 @@
+
 public class ParameterDefinition {
     string parameterName; //No extension here! No --, - or /! Same goes for Parameter class
     bool isRequired;
@@ -6,13 +7,16 @@ public class ParameterDefinition {
     bool noSplit; //If set, the comma-separated list is /not/ split. Imagine being provided a file name for opening and it actually /does/ contain a »,«. Or a double with thousand-separator »,«
     ParameterType type;
     string helpText; // A short description text for generated help text.
+    Parameter.CheckFunction checker;
     public ParameterDefinition(string newParameterName,
                                ParameterType newType,
                                bool newIsRequired = false,
                                uint newMinValues = 0,
                                uint newMaxValues = 0,
                                bool newSplit = false,
-                               string newHelpText = null) {
+                               string newHelpText = null,
+                               Parameter.CheckFunction newCheckFunction = null) {
+        if (newCheckFunction != null) this.checker = newCheckFunction;
         if (   newParameterName == null
             || newParameterName.Length < 1) {
             throw new ParameterDefinitionNameRequiredException("For a parameter definition a parameter name of at least one character length is required!");
@@ -73,6 +77,10 @@ public class ParameterDefinition {
 
     public string getHelpText() {
         return helpText;
+    }
+
+    public Parameter.CheckFunction getCheckFunction() {
+        return checker;
     }
 }
 

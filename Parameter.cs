@@ -16,11 +16,13 @@ public enum ParameterFlaw {
     ValuesMissing,
     TooManyValues,
     TooFewValues,
-    RuleViolation, //Not used, yet, but will be: A rule can be attached to a Parameterdefintion. If it returns false, then this is set. (E. g., values must have a certain sum and the values do not meet that criterion, then it's marked with this.)
+    RuleViolation,
     ParameterMissing,
 }
 
 public class Parameter {
+    public delegate string CheckFunction(Parameter p); //Used for automated checking on the provided values from the user. Requires a string to be returned, /if/ something went wrong. This help text should be displayed when the initiation of a Parameter went wrong due to faulty values.
+
     string parameterName; //Those must not contain the prefix --, - or /! Just like in the ParameterDefinition
     ParameterType type;
     uint numberOfValues;
@@ -32,6 +34,7 @@ public class Parameter {
     bool isTainted = false;
     List<ParameterFlaw> flaws = new List<ParameterFlaw>();
     string helpText; //May contain an explanation of what this parameter is supposed to do, what values it will expect and if it is mandatory or not.
+    CheckFunction checker;
 
     public Parameter(string newParameterName, // Only to be used to create boolean type parameters
                      bool newValue,
@@ -61,7 +64,8 @@ public class Parameter {
                                           splitString,
                                           pDef.getMinValues(),
                                           pDef.getMaxValues(),
-                                          pDef.getHelpText());
+                                          pDef.getHelpText(),
+                                          pDef.getCheckFunction());
         this.parameterName = pDef.getParameterName();
         this.type = pDef.getType();
         this.numberOfValues = newOne.getNumberOfValues();
@@ -73,6 +77,7 @@ public class Parameter {
         this.flaws = newOne.getFlaws();
         this.helpText = newOne.getHelpText();
         this.isTainted = newOne.getIsTainted();
+        this.checker = newOne.getCheckFunction();
     }
 
     public Parameter(ParameterDefinition pDef,
@@ -98,7 +103,8 @@ public class Parameter {
                      string[] providedValues,
                      uint newMinValues = 0,
                      uint newMaxValues = 0,
-                     string newHelpText = null) {
+                     string newHelpText = null,
+                     CheckFunction newChecker = null) {
         if (   newParameterName == null
             || newParameterName.Length < 1) {
             throw new ParameterNameRequiredException("For a parameter definition a parameter name of at least one character length is required!");
@@ -166,7 +172,20 @@ public class Parameter {
 
         this.helpText = newHelpText;
 
+        this.checker = newChecker;
         if (flaws.Count > 0) this.isTainted = true;
+        if (   checker != null
+            && !this.isTainted) {
+            /* Important: Must not be tainted. The programmer must be able to rely on a defined situation, such as, the number of parameters is within the definition realm.
+               If not, some checks will fail, so better not do this, when something went wront, already. */
+            string problem = checker(this);
+            if (problem != null) {
+                this.flaws.Add(ParameterFlaw.RuleViolation);
+                this.isTainted = true;
+            }
+        }
+
+
     }
 
     public string getName() {
@@ -267,6 +286,17 @@ public class Parameter {
         return this.helpText;
     }
 
+    public CheckFunction getCheckFunction() {
+        return checker;
+    }
+
+    public string runCheck() {
+        if (checker == null) {
+            throw new ParameterCheckerMissing("No parameter checking function was defined!");
+        }
+        return checker(this);
+    }
+
     private static string[] valueSplit (string value) {
         List<string> list1 = new List<string>(Regex.Split(value, @"\s*,\s*"));
         List<string> list2 = new List<string>();
@@ -344,4 +374,13 @@ public class ParameterTypeWrongForGetting : System.Exception {
 
     protected ParameterTypeWrongForGetting(System.Runtime.Serialization.SerializationInfo info,
                                            System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
+}
+
+public class ParameterCheckerMissing : System.Exception {
+    public ParameterCheckerMissing() : base() { }
+    public ParameterCheckerMissing(string message) : base(message) { }
+    public ParameterCheckerMissing(string message, System.Exception inner) : base(message, inner) { }
+
+    protected ParameterCheckerMissing(System.Runtime.Serialization.SerializationInfo info,
+                                      System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
 }

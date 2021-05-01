@@ -25,7 +25,18 @@ public static class ParameterTest {
                                                                            1,
                                                                            2,
                                                                            false,
-                                                                           "This is a testing Integer. It is optional, but if used, requires exactly 1 or 2 values. It is split normally."),
+                                                                           "This is a testing Integer. It is optional, but if used, requires exactly 1 or 2 values and their sum must not exceed 12. It is split normally.",
+                                                                           delegate(Parameter p) {
+                                                                               int[] integers = p.getIntegerValues();
+                                                                               int sum = 0;
+                                                                               foreach(int integer in integers) {
+                                                                                   sum += integer;
+                                                                               }
+                                                                               if (sum > 12) {
+                                                                                   return "Sum for --inttest must be less than 13. But it is " + sum + ".";
+                                                                               }
+                                                                               return null;
+                                                                           }),
                                                    new ParameterDefinition("dtest",
                                                                            ParameterType.Double,
                                                                            true,
@@ -37,9 +48,16 @@ public static class ParameterTest {
                                                                            ParameterType.String,
                                                                            true,
                                                                            1,
-                                                                           4,
+                                                                           1,
                                                                            false,
-                                                                           "This is a testing String parameter. It is mandatory. It requires 1-4 values, no more."),
+                                                                           "This is a testing String parameter. It is mandatory. It requires 1 value, no more. It may provide one of the following three values: 'first', 'last' or 'between'.",
+                                                                           delegate (Parameter p) {
+                                                                               string[] strings = p.getStringValues();
+                                                                               if (strings[0].Equals("first")) return null;
+                                                                               if (strings[0].Equals("last")) return null;
+                                                                               if (strings[0].Equals("between")) return null;
+                                                                               return "The provided value '" + strings[0] + "' is not allowed. It must be 'first', 'last' or 'between'.";
+                                                                           }),
                                                },
                                                args,
                                                "This is a parameter test program.",
