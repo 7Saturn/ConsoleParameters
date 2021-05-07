@@ -7,7 +7,7 @@ using System.Threading;
 
 /* Ideas for expansion:
 
- * Special requirements for the provided values might as well be checked by a CallBack/Delegate, that does checks on them. See ParameterFlaw definition in Parameter.cs.
+ * Name space for ConsoleParameters.
  * A more explicit information, what went wrong with the provided arguments from the user during initialisation (doubled parameters provided, missing parameters, unknown parameter names) on a more generalized level (not only per parameter but somewhere, e. g. at least one parameter was missing, at least one parameter had to few values, etc.). Right now tainted for ConsoleParameters only means something went wrong but you have to find out what it was. Checking all the before mentioned and all parameters for faults is a bit tiresome.
  * Getter for list of parameters with help texts alone, helps creating a more personal version of the help without a lack of nice formatting.
  * New parameter that overrides standard parameter list in command line call example (because sometimes the interactions of parameters are a bit more complex than just being optional all by themselves).
