@@ -11,8 +11,9 @@ currently being supported with security updates.
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+For the most part, contacting me via Github should work out. In case you cannot
+reach me in this fashion, use 7Saturn@gmx.de.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+I will look into the matter (but probably not right away) and if possible (for
+me that is), correct the issue. Helpful advice for that kind of task is always
+welcome.
